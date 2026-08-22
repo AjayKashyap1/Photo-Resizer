@@ -1,0 +1,6 @@
+{
+  "name": "PixelCraft & Barcode Studio",
+  "description": "Professional bulk and single photo pixel resizer, quality optimizer, multi-format barcode/QR code generator (EAN, UPC, QR, Code128) with batch ZIP export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
