@@ -1,8 +1,12 @@
 export type SupportedFormat = 'image/jpeg' | 'image/png' | 'image/webp';
 
-export type ResizeMode = 'exact' | 'fit' | 'fill' | 'percentage' | 'target_size';
+export type ResizeMode = 'exact' | 'fit' | 'fill' | 'percentage' | 'target_size' | 'upscale';
 
 export type DimensionUnit = 'px' | '%' | 'mm' | 'cm' | 'in';
+
+export type UpscaleFactor = 2 | 4 | 8;
+export type UpscaleEngine = 'super_resolution' | 'smart_sharpen' | 'smooth_bicubic' | 'pixel_art';
+export type BorderPlacement = 'expand' | 'inset' | 'polaroid';
 
 export interface ImageProcessingConfig {
   resizeMode: ResizeMode;
@@ -16,6 +20,13 @@ export interface ImageProcessingConfig {
   quality: number; // 0.01 to 1.0
   dpi: number;
   backgroundColor: string; // for PNG to JPG or fill padding
+  // Extra Border & Background Padding
+  addBorder?: boolean;
+  borderWidth?: number; // Border width in px
+  borderColor?: string; // Border color hex (e.g. #ffffff, #000000)
+  borderPlacement?: BorderPlacement; // 'expand' | 'inset' | 'polaroid'
+  borderRadius?: number; // Inner image corner radius in px
+  borderShadow?: boolean; // Subtle photo shadow inside border
   rotation: 0 | 90 | 180 | 270;
   flipH: boolean;
   flipV: boolean;
@@ -23,6 +34,11 @@ export interface ImageProcessingConfig {
   brightness: number; // 0 to 200 (100 is default)
   contrast: number; // 0 to 200 (100 is default)
   sharpen: boolean;
+  // Upscaling options
+  upscaleFactor?: UpscaleFactor; // 2x, 4x, 8x
+  upscaleEngine?: UpscaleEngine;
+  upscaleDenoise?: boolean;
+  upscaleClarity?: number;
   // Cropping
   crop?: {
     x: number; // in natural image pixels
@@ -126,3 +142,11 @@ export interface NamingTemplate {
   prefix: string;
   includeDimensions: boolean;
 }
+
+export type {
+  LogLevel,
+  LogCategory,
+  LogEntry,
+  HistoryActionType,
+  HistoryRecord,
+} from '../utils/historyLogger';

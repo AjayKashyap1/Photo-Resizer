@@ -11,6 +11,8 @@ import {
   Loader2,
   ArrowRight,
   TrendingDown,
+  Zap,
+  Frame,
 } from 'lucide-react';
 
 interface ImageCardProps {
@@ -92,7 +94,7 @@ export const ImageCard: React.FC<ImageCardProps> = ({
         </div>
 
         {/* Status Badge */}
-        <div className="absolute bottom-2 left-2">
+        <div className="absolute bottom-2 left-2 flex items-center gap-1">
           {item.outputBlob ? (
             <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-2xs backdrop-blur-xs">
               <CheckCircle2 className="h-3 w-3" />
@@ -104,6 +106,20 @@ export const ImageCard: React.FC<ImageCardProps> = ({
               Error
             </span>
           ) : null}
+
+          {item.outputWidth > item.originalWidth && (
+            <span className="inline-flex items-center gap-0.5 rounded-md bg-indigo-600/90 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-2xs backdrop-blur-xs">
+              <Zap className="h-2.5 w-2.5" />
+              {Math.round(item.outputWidth / item.originalWidth)}x Upscaled
+            </span>
+          )}
+
+          {item.customConfig?.addBorder && (
+            <span className="inline-flex items-center gap-0.5 rounded-md bg-purple-600/90 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-2xs backdrop-blur-xs">
+              <Frame className="h-2.5 w-2.5" />
+              {item.customConfig.borderWidth || 20}px Border
+            </span>
+          )}
         </div>
       </div>
 

@@ -7,6 +7,7 @@ import {
   generateBarcodeSVG,
 } from '../../utils/barcodeGenerator';
 import { downloadBlob, exportBarcodesAsZip } from '../../utils/zipExporter';
+import { historyLogger } from '../../utils/historyLogger';
 import { SAMPLE_BARCODES } from '../../utils/sampleData';
 import {
   Layers,
@@ -115,6 +116,25 @@ export const BulkBarcodeManager: React.FC<BulkBarcodeManagerProps> = ({
     setBarcodes((prev) => [...prev, ...newItems]);
     setIsGenerating(false);
     setProgressText('');
+
+    const successCount = newItems.filter((it) => !it.error).length;
+    historyLogger.log(
+      'success',
+      'barcode',
+      'Bulk Barcodes Generated',
+      `Generated ${successCount} barcodes in batch (${selectedType.toUpperCase()}).`
+    );
+
+    historyLogger.addHistory({
+      actionType: 'barcode_batch',
+      title: `Bulk Generated Barcodes (${successCount} items)`,
+      summary: `Batch processed ${successCount} barcodes (${selectedType.toUpperCase()}) with labels & pricing`,
+      itemCount: successCount,
+      metadata: {
+        barcodeType: selectedType,
+        barcodeCount: successCount,
+      },
+    });
   };
 
   const handleDownloadSingle = (item: BulkBarcodeItem) => {

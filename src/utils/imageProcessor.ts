@@ -1,6 +1,7 @@
 import { ImageProcessingConfig, SupportedFormat } from '../types';
 import { generateBarcodeCanvas } from './barcodeGenerator';
 import { injectDpiMetadata } from './dpiHelper';
+import { upscaleCanvas } from './upscaler';
 
 export const DEFAULT_CONFIG: ImageProcessingConfig = {
   resizeMode: 'exact',
@@ -14,6 +15,12 @@ export const DEFAULT_CONFIG: ImageProcessingConfig = {
   quality: 0.85,
   dpi: 96,
   backgroundColor: '#ffffff',
+  addBorder: false,
+  borderWidth: 20,
+  borderColor: '#ffffff',
+  borderPlacement: 'expand',
+  borderRadius: 0,
+  borderShadow: false,
   rotation: 0,
   flipH: false,
   flipV: false,
@@ -21,6 +28,10 @@ export const DEFAULT_CONFIG: ImageProcessingConfig = {
   brightness: 100,
   contrast: 100,
   sharpen: false,
+  upscaleFactor: 2,
+  upscaleEngine: 'super_resolution',
+  upscaleDenoise: true,
+  upscaleClarity: 75,
   overlayBarcode: false,
   overlayPosition: 'bottom-right',
   overlayScale: 25,
@@ -35,6 +46,14 @@ export function calculateTargetDimensions(
 ): { targetW: number; targetH: number } {
   let targetW = config.width;
   let targetH = config.height;
+
+  if (config.resizeMode === 'upscale') {
+    const factor = config.upscaleFactor || 2;
+    return {
+      targetW: Math.max(1, Math.round(origW * factor)),
+      targetH: Math.max(1, Math.round(origH * factor)),
+    };
+  }
 
   if (config.resizeMode === 'percentage') {
     const scale = Math.max(1, config.percentage) / 100;
@@ -180,10 +199,58 @@ export async function processImage(
 
   const { targetW, targetH } = calculateTargetDimensions(effectiveOrigW, effectiveOrigH, config);
 
-  // Determine final canvas size accounting for 90/270 deg rotation
+  // Determine final canvas size accounting for 90/270 deg rotation & border padding
   const isRotated = config.rotation === 90 || config.rotation === 270;
-  const canvasW = isRotated ? targetH : targetW;
-  const canvasH = isRotated ? targetW : targetH;
+  const baseW = isRotated ? targetH : targetW;
+  const baseH = isRotated ? targetW : targetH;
+
+  const hasBorder = Boolean(config.addBorder && (config.borderWidth ?? 0) > 0);
+  const bw = hasBorder ? Math.max(1, config.borderWidth || 20) : 0;
+  const placement = config.borderPlacement || 'expand';
+  const borderColor = config.borderColor || config.backgroundColor || '#ffffff';
+  const borderRadius = hasBorder ? Math.max(0, config.borderRadius || 0) : 0;
+  const borderShadow = hasBorder && Boolean(config.borderShadow);
+
+  let padLeft = 0;
+  let padRight = 0;
+  let padTop = 0;
+  let padBottom = 0;
+
+  if (hasBorder) {
+    if (placement === 'polaroid') {
+      padLeft = bw;
+      padRight = bw;
+      padTop = bw;
+      padBottom = Math.round(bw * 3.5);
+    } else {
+      padLeft = bw;
+      padRight = bw;
+      padTop = bw;
+      padBottom = bw;
+    }
+  }
+
+  let canvasW: number;
+  let canvasH: number;
+  let drawW: number;
+  let drawH: number;
+
+  if (hasBorder && placement === 'expand') {
+    drawW = baseW;
+    drawH = baseH;
+    canvasW = baseW + padLeft + padRight;
+    canvasH = baseH + padTop + padBottom;
+  } else if (hasBorder && placement === 'inset') {
+    canvasW = baseW;
+    canvasH = baseH;
+    drawW = Math.max(10, baseW - (padLeft + padRight));
+    drawH = Math.max(10, baseH - (padTop + padBottom));
+  } else {
+    canvasW = baseW;
+    canvasH = baseH;
+    drawW = baseW;
+    drawH = baseH;
+  }
 
   const canvas = document.createElement('canvas');
   canvas.width = canvasW;
@@ -193,16 +260,106 @@ export async function processImage(
     throw new Error('Canvas 2D context is not available');
   }
 
-  // Draw background if converting transparent image to JPEG or configured
-  if (config.format === 'image/jpeg' || config.backgroundColor !== 'transparent') {
-    ctx.fillStyle = config.backgroundColor || '#ffffff';
+  // Prepare source / cropped region
+  let sourceElement: CanvasImageSource = img;
+  let sourceW = origW;
+  let sourceH = origH;
+
+  if (cropRect) {
+    const cropCanvas = document.createElement('canvas');
+    cropCanvas.width = cropRect.width;
+    cropCanvas.height = cropRect.height;
+    const cropCtx = cropCanvas.getContext('2d');
+    if (cropCtx) {
+      cropCtx.drawImage(
+        img,
+        cropRect.x,
+        cropRect.y,
+        cropRect.width,
+        cropRect.height,
+        0,
+        0,
+        cropRect.width,
+        cropRect.height
+      );
+      sourceElement = cropCanvas;
+      sourceW = cropRect.width;
+      sourceH = cropRect.height;
+    }
+  }
+
+  // Check if upscaling engine should be invoked (when scaling up or in upscale mode)
+  let renderSource: CanvasImageSource = sourceElement;
+  const isUpscaling =
+    config.resizeMode === 'upscale' ||
+    targetW > sourceW * 1.1 ||
+    targetH > sourceH * 1.1;
+
+  if (isUpscaling && config.upscaleEngine) {
+    const computedFactor =
+      config.upscaleFactor ||
+      (targetW / sourceW >= 6 ? 8 : targetW / sourceW >= 3 ? 4 : 2);
+
+    const upscaled = upscaleCanvas(
+      sourceElement,
+      sourceW,
+      sourceH,
+      targetW,
+      targetH,
+      {
+        factor: computedFactor,
+        engine: config.upscaleEngine || 'super_resolution',
+        denoise: config.upscaleDenoise ?? true,
+        clarity: config.upscaleClarity ?? 75,
+      }
+    );
+    renderSource = upscaled;
+  }
+
+  // Draw background / border color
+  const finalBgColor = hasBorder ? borderColor : config.backgroundColor;
+  if (config.format === 'image/jpeg' || (finalBgColor && finalBgColor !== 'transparent')) {
+    ctx.fillStyle = finalBgColor || '#ffffff';
     ctx.fillRect(0, 0, canvasW, canvasH);
+  }
+
+  // Soft drop shadow behind inner image if enabled
+  if (hasBorder && borderShadow) {
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
+    ctx.shadowBlur = Math.min(30, Math.max(4, Math.round(bw * 0.5 + 4)));
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = Math.min(12, Math.max(2, Math.round(bw * 0.2 + 2)));
+    ctx.fillStyle = '#000000';
+    ctx.beginPath();
+    if (borderRadius > 0) {
+      if (typeof (ctx as any).roundRect === 'function') {
+        (ctx as any).roundRect(padLeft, padTop, drawW, drawH, Math.min(borderRadius, drawW / 2, drawH / 2));
+      } else {
+        ctx.rect(padLeft, padTop, drawW, drawH);
+      }
+    } else {
+      ctx.rect(padLeft, padTop, drawW, drawH);
+    }
+    ctx.fill();
+    ctx.restore();
   }
 
   ctx.save();
 
-  // Apply Transformations (Rotate, Flip)
-  ctx.translate(canvasW / 2, canvasH / 2);
+  // Clip rounded corners if specified
+  if (hasBorder && borderRadius > 0) {
+    ctx.beginPath();
+    if (typeof (ctx as any).roundRect === 'function') {
+      (ctx as any).roundRect(padLeft, padTop, drawW, drawH, Math.min(borderRadius, drawW / 2, drawH / 2));
+    } else {
+      ctx.rect(padLeft, padTop, drawW, drawH);
+    }
+    ctx.clip();
+  }
+
+  // Apply Transformations (Rotate, Flip) centered on the inner photo
+  ctx.translate(padLeft + drawW / 2, padTop + drawH / 2);
   if (config.rotation !== 0) {
     ctx.rotate((config.rotation * Math.PI) / 180);
   }
@@ -217,25 +374,13 @@ export async function processImage(
     ctx.filter = filterParts.join(' ');
   }
 
-  // Step-down bilinear scaling for crisp quality on large downscaling
-  ctx.imageSmoothingEnabled = true;
+  // Scaling quality
+  ctx.imageSmoothingEnabled = config.upscaleEngine !== 'pixel_art';
   ctx.imageSmoothingQuality = 'high';
 
-  if (cropRect) {
-    ctx.drawImage(
-      img,
-      cropRect.x,
-      cropRect.y,
-      cropRect.width,
-      cropRect.height,
-      -targetW / 2,
-      -targetH / 2,
-      targetW,
-      targetH
-    );
-  } else {
-    ctx.drawImage(img, -targetW / 2, -targetH / 2, targetW, targetH);
-  }
+  const unrotatedDrawW = isRotated ? drawH : drawW;
+  const unrotatedDrawH = isRotated ? drawW : drawH;
+  ctx.drawImage(renderSource, -unrotatedDrawW / 2, -unrotatedDrawH / 2, unrotatedDrawW, unrotatedDrawH);
   ctx.restore();
 
   // Sharpening if requested

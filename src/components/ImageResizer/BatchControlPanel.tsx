@@ -18,6 +18,9 @@ import {
   Sun,
   Eye,
   CheckCircle2,
+  Zap,
+  Frame,
+  Palette,
 } from 'lucide-react';
 
 interface BatchControlPanelProps {
@@ -128,14 +131,14 @@ export const BatchControlPanel: React.FC<BatchControlPanelProps> = ({
       {/* Main Grid Controls */}
       <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
         
-        {/* Column 1: Resize Mode & Presets */}
+        {/* Column 1: Resize Mode & Presets / Upscale */}
         <div className="space-y-3">
           <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-            {lang === 'hi' ? '1. रिसाइज मोड व प्रीसेट' : '1. Mode & Presets'}
+            {lang === 'hi' ? '1. रिसाइज / अपस्केल मोड' : '1. Mode & Upscale'}
           </label>
 
-          {/* Mode Selector */}
-          <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 border border-slate-200">
+          {/* Mode Selector - 3 Modes */}
+          <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1 border border-slate-200">
             <button
               id="mode-exact-btn"
               type="button"
@@ -146,7 +149,7 @@ export const BatchControlPanel: React.FC<BatchControlPanelProps> = ({
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              {lang === 'hi' ? 'पिक्सेल (Px)' : 'Exact Pixels'}
+              {lang === 'hi' ? 'पिक्सेल (Px)' : 'Exact Px'}
             </button>
             <button
               id="mode-percentage-btn"
@@ -158,11 +161,33 @@ export const BatchControlPanel: React.FC<BatchControlPanelProps> = ({
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              {lang === 'hi' ? 'प्रतिशत (%)' : 'Percentage %'}
+              {lang === 'hi' ? 'प्रतिशत (%)' : 'Percent %'}
+            </button>
+            <button
+              id="mode-upscale-btn"
+              type="button"
+              onClick={() =>
+                onChange({
+                  ...config,
+                  resizeMode: 'upscale',
+                  upscaleFactor: config.upscaleFactor || 2,
+                  upscaleEngine: config.upscaleEngine || 'super_resolution',
+                  upscaleDenoise: config.upscaleDenoise ?? true,
+                  upscaleClarity: config.upscaleClarity ?? 75,
+                })
+              }
+              className={`flex items-center justify-center gap-1 rounded-lg py-1.5 text-xs font-bold transition ${
+                config.resizeMode === 'upscale'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Zap className="h-3 w-3" />
+              <span>{lang === 'hi' ? 'अपस्केल' : 'Upscale'}</span>
             </button>
           </div>
 
-          {/* Presets dropdown */}
+          {/* Mode-specific secondary controls */}
           {config.resizeMode === 'exact' && (
             <div>
               <label className="block text-[11px] font-medium text-slate-500 mb-1">
@@ -189,16 +214,53 @@ export const BatchControlPanel: React.FC<BatchControlPanelProps> = ({
               </select>
             </div>
           )}
+
+          {config.resizeMode === 'upscale' && (
+            <div className="space-y-2 rounded-xl bg-blue-50/70 border border-blue-100 p-2.5">
+              <span className="block text-[10px] font-bold text-blue-900 uppercase tracking-wider">
+                {lang === 'hi' ? 'अपस्केल मल्टीप्लायर' : 'Upscale Factor'}
+              </span>
+              <div className="grid grid-cols-3 gap-1.5">
+                {([2, 4, 8] as (2 | 4 | 8)[]).map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => onChange({ ...config, upscaleFactor: f })}
+                    className={`rounded-lg py-1.5 text-xs font-extrabold transition border ${
+                      (config.upscaleFactor || 2) === f
+                        ? 'border-blue-600 bg-blue-600 text-white shadow-2xs'
+                        : 'border-blue-200 bg-white text-blue-800 hover:bg-blue-100/60'
+                    }`}
+                  >
+                    {f}X {f === 2 ? 'HD' : f === 4 ? '4K' : '8K'}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-blue-700 leading-tight">
+                {config.upscaleFactor === 8
+                  ? '⚡ 8X Super Resolution (Up to 800% enlargement)'
+                  : config.upscaleFactor === 4
+                  ? '🌟 4X Super Resolution (Up to 400% 4K enhancement)'
+                  : '✨ 2X Ultra HD (Double resolution with sharp edges)'}
+              </p>
+            </div>
+          )}
         </div>
 
-        {/* Column 2: Dimensions & Aspect Ratio */}
+        {/* Column 2: Dimensions / Ratio / Upscale Engine */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-              {lang === 'hi' ? '2. डायमेंशन और अनुपात' : '2. Dimensions & Ratio'}
+              {config.resizeMode === 'upscale'
+                ? lang === 'hi'
+                  ? '2. अपस्केल इंजन व क्लैरिटी'
+                  : '2. Upscale Engine & Clarity'
+                : lang === 'hi'
+                ? '2. डायमेंशन और अनुपात'
+                : '2. Dimensions & Ratio'}
             </label>
 
-            {/* Units */}
+            {/* Units for Exact mode */}
             {config.resizeMode === 'exact' && (
               <div className="flex items-center gap-1">
                 {(['px', 'mm', 'cm', 'in'] as DimensionUnit[]).map((u) => (
@@ -305,6 +367,55 @@ export const BatchControlPanel: React.FC<BatchControlPanelProps> = ({
                     <option value={600}>600 DPI (Ultra HD)</option>
                   </select>
                 </div>
+              </div>
+            </div>
+          ) : config.resizeMode === 'upscale' ? (
+            <div className="space-y-2">
+              <div>
+                <span className="block text-[11px] font-medium text-slate-600 mb-1">
+                  {lang === 'hi' ? 'अपस्केलिंग तकनीक (Engine)' : 'Upscaling Algorithm'}
+                </span>
+                <select
+                  id="batch-upscale-engine-select"
+                  value={config.upscaleEngine || 'super_resolution'}
+                  onChange={(e) => onChange({ ...config, upscaleEngine: e.target.value as any })}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:border-blue-500 focus:bg-white focus:outline-none transition"
+                >
+                  <option value="super_resolution">🌟 Super Resolution (Adaptive Clarity)</option>
+                  <option value="smooth_bicubic">✨ Smooth & Clean (Portraits / Photos)</option>
+                  <option value="smart_sharpen">🎨 Smart Sharpen (Crisp Graphics)</option>
+                  <option value="pixel_art">👾 Pixel Art (Nearest-Neighbor Crisp)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-600 font-medium">{lang === 'hi' ? 'डिटेल व क्लैरिटी' : 'Detail & Clarity'}</span>
+                  <span className="font-bold text-blue-600">{config.upscaleClarity ?? 75}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={config.upscaleClarity ?? 75}
+                  onChange={(e) => onChange({ ...config, upscaleClarity: Number(e.target.value) })}
+                  className="h-1.5 w-full cursor-pointer accent-blue-600"
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-700 font-medium">
+                  <input
+                    type="checkbox"
+                    checked={config.upscaleDenoise ?? true}
+                    onChange={(e) => onChange({ ...config, upscaleDenoise: e.target.checked })}
+                    className="h-3.5 w-3.5 rounded text-blue-600 accent-blue-600"
+                  />
+                  <span>{lang === 'hi' ? 'स्मार्ट नॉइज़ रिमूवल (Denoise)' : 'Auto Denoise artifacts'}</span>
+                </label>
+                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                  {config.upscaleFactor || 2}X Super-Res
+                </span>
               </div>
             </div>
           ) : (
@@ -559,6 +670,199 @@ export const BatchControlPanel: React.FC<BatchControlPanelProps> = ({
             </div>
           </div>
         )}
+      </div>
+
+      {/* Dedicated Extra Border & Background Fill Card */}
+      <div className="mt-4 border-t border-slate-100 pt-3">
+        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 transition-all">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-2xs">
+                <Frame className="h-4 w-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-slate-800">
+                  {lang === 'hi' ? 'एक्स्ट्रा बॉर्डर व बैकग्राउंड फिल (Extra Border & Padding)' : 'Extra Border & Background Fill'}
+                </span>
+                <span className="block text-[11px] text-slate-500">
+                  {lang === 'hi'
+                    ? 'सभी तस्वीरों के चारों ओर अतिरिक्त वाइट/कलर फ्रेम और मार्जिन लगाएं'
+                    : 'Add clean framing margins, background fill, or Polaroid style across photos'}
+                </span>
+              </div>
+            </div>
+
+            <label className="relative inline-flex cursor-pointer items-center">
+              <input
+                type="checkbox"
+                checked={Boolean(config.addBorder)}
+                onChange={(e) =>
+                  onChange({
+                    ...config,
+                    addBorder: e.target.checked,
+                    borderWidth: config.borderWidth || 20,
+                    borderColor: config.borderColor || '#ffffff',
+                    borderPlacement: config.borderPlacement || 'expand',
+                  })
+                }
+                className="peer sr-only"
+              />
+              <div className="peer h-5 w-9 rounded-full bg-slate-300 after:absolute after:top-[2px] after:left-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-focus:outline-none"></div>
+            </label>
+          </div>
+
+          {config.addBorder && (
+            <div className="mt-3.5 pt-3 border-t border-slate-200/80 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 animate-in fade-in duration-150">
+              {/* Border Width */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-slate-700">
+                    {lang === 'hi' ? 'बॉर्डर चौड़ाई' : 'Border Width'}
+                  </span>
+                  <span className="font-bold text-blue-700">{config.borderWidth || 20}px</span>
+                </div>
+                <input
+                  type="range"
+                  min="2"
+                  max="100"
+                  step="1"
+                  value={config.borderWidth || 20}
+                  onChange={(e) => onChange({ ...config, borderWidth: Number(e.target.value) })}
+                  className="w-full h-1.5 accent-blue-600 cursor-pointer"
+                />
+                <div className="flex flex-wrap gap-1">
+                  {[10, 15, 20, 30, 40].map((px) => (
+                    <button
+                      key={px}
+                      type="button"
+                      onClick={() => onChange({ ...config, borderWidth: px })}
+                      className={`rounded px-1.5 py-0.5 text-[10px] font-bold transition ${
+                        config.borderWidth === px
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {px}px
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Border Color */}
+              <div className="space-y-1.5">
+                <span className="block text-xs font-semibold text-slate-700">
+                  {lang === 'hi' ? 'बॉर्डर रंग' : 'Border Color'}
+                </span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={config.borderColor || config.backgroundColor || '#ffffff'}
+                    onChange={(e) =>
+                      onChange({
+                        ...config,
+                        borderColor: e.target.value,
+                        backgroundColor: e.target.value,
+                      })
+                    }
+                    className="h-7 w-8 rounded border border-slate-300 p-0 cursor-pointer"
+                  />
+                  <div className="flex flex-wrap gap-1">
+                    {[
+                      { name: 'White', color: '#ffffff' },
+                      { name: 'Black', color: '#000000' },
+                      { name: 'Gray', color: '#e2e8f0' },
+                      { name: 'Red', color: '#ef4444' },
+                      { name: 'Blue', color: '#2563eb' },
+                      { name: 'Gold', color: '#eab308' },
+                    ].map((c) => (
+                      <button
+                        key={c.name}
+                        type="button"
+                        onClick={() =>
+                          onChange({
+                            ...config,
+                            borderColor: c.color,
+                            backgroundColor: c.color,
+                          })
+                        }
+                        className={`h-5 w-5 rounded border border-slate-300 transition ${
+                          (config.borderColor || '#ffffff').toLowerCase() === c.color.toLowerCase()
+                            ? 'ring-2 ring-blue-500 scale-110'
+                            : 'hover:scale-105'
+                        }`}
+                        style={{ backgroundColor: c.color }}
+                        title={c.name}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Border Placement */}
+              <div className="space-y-1.5">
+                <span className="block text-xs font-semibold text-slate-700">
+                  {lang === 'hi' ? 'प्लेसमेंट मोड' : 'Placement Mode'}
+                </span>
+                <div className="grid grid-cols-3 gap-1">
+                  {[
+                    { id: 'expand', label: lang === 'hi' ? 'कैनवस बड़ा' : 'Expand' },
+                    { id: 'inset', label: lang === 'hi' ? 'अंदर फिट' : 'Inset' },
+                    { id: 'polaroid', label: lang === 'hi' ? 'पोलरॉइड' : 'Polaroid' },
+                  ].map((mode) => (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      onClick={() => onChange({ ...config, borderPlacement: mode.id as any })}
+                      className={`rounded-lg border px-1.5 py-1 text-center text-[10px] font-bold transition ${
+                        (config.borderPlacement || 'expand') === mode.id
+                          ? 'border-blue-600 bg-blue-50 text-blue-700'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {mode.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Inner Radius & Shadow */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-slate-700">
+                    {lang === 'hi' ? 'गोल कोने (Radius)' : 'Corner Radius'}
+                  </span>
+                  <span className="font-bold text-slate-700">{config.borderRadius || 0}px</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  {[0, 8, 16, 24].map((rad) => (
+                    <button
+                      key={rad}
+                      type="button"
+                      onClick={() => onChange({ ...config, borderRadius: rad })}
+                      className={`rounded px-1.5 py-0.5 text-[10px] font-bold transition ${
+                        (config.borderRadius || 0) === rad
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {rad === 0 ? 'Sharp' : `${rad}px`}
+                    </button>
+                  ))}
+                </div>
+                <label className="flex items-center gap-1.5 pt-1 text-[11px] font-semibold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(config.borderShadow)}
+                    onChange={(e) => onChange({ ...config, borderShadow: e.target.checked })}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>{lang === 'hi' ? 'हल्की ड्रॉप शैडो (3D)' : 'Soft Drop Shadow'}</span>
+                </label>
+              </div>
+
+            </div>
+          )}
+        </div>
       </div>
 
     </div>

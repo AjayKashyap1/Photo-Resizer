@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   SlidersHorizontal,
   Barcode,
@@ -7,11 +7,13 @@ import {
   Trash2,
   Sparkles,
   Zap,
+  History,
 } from 'lucide-react';
+import { historyLogger } from '../utils/historyLogger';
 
 interface HeaderProps {
-  activeTab: 'resizer' | 'barcode' | 'overlay';
-  setActiveTab: (tab: 'resizer' | 'barcode' | 'overlay') => void;
+  activeTab: 'resizer' | 'barcode' | 'overlay' | 'history';
+  setActiveTab: (tab: 'resizer' | 'barcode' | 'overlay' | 'history') => void;
   imageCount: number;
   barcodeCount: number;
   onDownloadAllZip: () => void;
@@ -32,13 +34,22 @@ export const Header: React.FC<HeaderProps> = ({
   lang,
   setLang,
 }) => {
+  const [historyCount, setHistoryCount] = useState<number>(0);
+
+  useEffect(() => {
+    const unsub = historyLogger.subscribeHistory((items) => {
+      setHistoryCount(items.length);
+    });
+    return () => unsub();
+  }, []);
+
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-md">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between gap-4">
           
           {/* Logo & Branding */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('resizer')}>
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-500/20">
               <Zap className="h-5 w-5" />
             </div>
@@ -108,6 +119,24 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Layers className="h-4 w-4 text-purple-600" />
               <span>{lang === 'hi' ? 'फोटो पर बारकोड स्टैम्प' : 'Stamp Barcode on Photos'}</span>
+            </button>
+
+            <button
+              id="nav-tab-history"
+              onClick={() => setActiveTab('history')}
+              className={`flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-all ${
+                activeTab === 'history'
+                  ? 'bg-white text-slate-900 shadow-sm font-semibold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              }`}
+            >
+              <History className="h-4 w-4 text-amber-500" />
+              <span>{lang === 'hi' ? 'इतिहास व लॉग्स' : 'History & Logs'}</span>
+              {historyCount > 0 && (
+                <span className="rounded-full bg-amber-100 px-1.5 py-0.2 text-[10px] font-bold text-amber-800">
+                  {historyCount}
+                </span>
+              )}
             </button>
           </nav>
 

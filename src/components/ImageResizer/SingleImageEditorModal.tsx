@@ -23,6 +23,11 @@ import {
   RotateCcw,
   AlignCenter,
   Scan,
+  Zap,
+  Frame,
+  Palette,
+  Paintbrush,
+  Square,
 } from 'lucide-react';
 
 interface SingleImageEditorModalProps {
@@ -65,7 +70,7 @@ export const SingleImageEditorModal: React.FC<SingleImageEditorModalProps> = ({
   const origH = item.originalHeight;
 
   // Active Editor Sub-tab
-  const [activeTab, setActiveTab] = useState<'crop' | 'tune'>('crop');
+  const [activeTab, setActiveTab] = useState<'crop' | 'tune' | 'border'>('crop');
 
   // Initial Crop setup
   const initialCrop: CropRect = item.customConfig?.crop || {
@@ -357,6 +362,22 @@ export const SingleImageEditorModal: React.FC<SingleImageEditorModalProps> = ({
             >
               <Sliders className="h-3.5 w-3.5" />
               <span>{lang === 'hi' ? 'पिक्सेल और फिल्टर्स' : 'Filters & Scaling'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('border');
+                handleReprocess();
+              }}
+              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition ${
+                activeTab === 'border'
+                  ? 'bg-white text-blue-600 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Frame className="h-3.5 w-3.5" />
+              <span>{lang === 'hi' ? 'बॉर्डर व बैकग्राउंड' : 'Border & Background'}</span>
             </button>
           </div>
 
@@ -765,6 +786,141 @@ export const SingleImageEditorModal: React.FC<SingleImageEditorModalProps> = ({
                   </div>
                 </div>
 
+                {/* Upscale Image (Super Resolution) Card */}
+                <div className="space-y-2.5 rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50/70 via-indigo-50/40 to-white p-3.5 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex h-5 w-5 items-center justify-center rounded-md bg-blue-600 text-white">
+                        <Zap className="h-3 w-3" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-900">
+                        {lang === 'hi' ? 'अपस्केल फोटो (Upscale Resolution)' : 'Upscale Image (Super Resolution)'}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-full">
+                      AI Super-Res Engine
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-600">
+                    {lang === 'hi'
+                      ? 'फोटो की रेजोल्यूशन 2x, 4x या 8x तक बढ़ाएं बिना पिक्सेलेट हुए।'
+                      : 'Enlarge image resolution with multi-step adaptive clarity and edge reconstruction.'}
+                  </p>
+
+                  {/* 1-Click Multipliers */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {([2, 4, 8] as (2 | 4 | 8)[]).map((factor) => {
+                      const newW = origW * factor;
+                      const newH = origH * factor;
+                      const isSelected =
+                        config.upscaleFactor === factor &&
+                        (config.width === newW || config.resizeMode === 'upscale');
+
+                      return (
+                        <button
+                          key={factor}
+                          type="button"
+                          onClick={() => {
+                            setConfig({
+                              ...config,
+                              resizeMode: 'upscale',
+                              upscaleFactor: factor,
+                              width: newW,
+                              height: newH,
+                              aspectRatio: origW / origH,
+                              maintainAspectRatio: true,
+                              upscaleEngine: config.upscaleEngine || 'super_resolution',
+                              upscaleDenoise: config.upscaleDenoise ?? true,
+                              upscaleClarity: config.upscaleClarity ?? 75,
+                            });
+                          }}
+                          className={`flex flex-col items-center justify-center rounded-xl p-2 transition border cursor-pointer ${
+                            isSelected
+                              ? 'border-blue-600 bg-blue-600 text-white shadow-sm shadow-blue-500/20'
+                              : 'border-slate-200 bg-white text-slate-800 hover:border-blue-300 hover:bg-blue-50/50'
+                          }`}
+                        >
+                          <span className="text-xs font-extrabold">
+                            {factor}X {factor === 2 ? 'HD' : factor === 4 ? '4K' : '8K'}
+                          </span>
+                          <span
+                            className={`text-[9px] font-medium ${
+                              isSelected ? 'text-blue-100' : 'text-slate-500'
+                            }`}
+                          >
+                            {newW} × {newH}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Upscale Algorithm Engine & Clarity */}
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div>
+                      <span className="block text-[10px] font-semibold text-slate-600 mb-1">
+                        {lang === 'hi' ? 'अपस्केलिंग तकनीक' : 'Enhancement Engine'}
+                      </span>
+                      <select
+                        value={config.upscaleEngine || 'super_resolution'}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            upscaleEngine: e.target.value as any,
+                          })
+                        }
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-800 focus:border-blue-500 focus:outline-none"
+                      >
+                        <option value="super_resolution">🌟 Super Resolution</option>
+                        <option value="smooth_bicubic">✨ Smooth & Clean</option>
+                        <option value="smart_sharpen">🎨 Smart Sharpen</option>
+                        <option value="pixel_art">👾 Pixel Art (Crisp)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between text-[10px] font-semibold text-slate-600 mb-1">
+                        <span>{lang === 'hi' ? 'क्लैरिटी' : 'Texture Clarity'}</span>
+                        <span className="font-bold text-blue-600">{config.upscaleClarity ?? 75}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={config.upscaleClarity ?? 75}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            upscaleClarity: Number(e.target.value),
+                          })
+                        }
+                        className="h-1.5 w-full cursor-pointer accent-blue-600 mt-2"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-blue-100/80 pt-2">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-700 font-medium">
+                      <input
+                        type="checkbox"
+                        checked={config.upscaleDenoise ?? true}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            upscaleDenoise: e.target.checked,
+                          })
+                        }
+                        className="h-3.5 w-3.5 rounded text-blue-600 accent-blue-600"
+                      />
+                      <span>{lang === 'hi' ? 'स्मार्ट आर्टिफैक्ट रिमूवल' : 'Suppress compression noise'}</span>
+                    </label>
+                    <span className="text-[10px] text-slate-500 font-medium">
+                      Output: {config.width} × {config.height} px
+                    </span>
+                  </div>
+                </div>
+
                 {/* DPI (Resolution / Print Density) Control */}
                 <div className="space-y-1.5 rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
                   <div className="flex items-center justify-between">
@@ -934,6 +1090,372 @@ export const SingleImageEditorModal: React.FC<SingleImageEditorModalProps> = ({
               </div>
             )}
 
+            {/* TAB 3: BORDER & BACKGROUND FILL */}
+            {activeTab === 'border' && (
+              <div className="space-y-4">
+                {/* Enable Border Master Toggle */}
+                <div className="flex items-center justify-between rounded-xl bg-blue-50/80 p-3.5 border border-blue-200/80">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-xs">
+                      <Frame className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">
+                        {lang === 'hi' ? 'एक्स्ट्रा बॉर्डर व बैकग्राउंड फिल' : 'Extra Border & Background Fill'}
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        {lang === 'hi' ? 'फोटो के चारों ओर फ्रेम या एक्स्ट्रा पैडिंग जोड़ें' : 'Add custom border margin and color frame'}
+                      </p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex cursor-pointer items-center">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(config.addBorder)}
+                      onChange={(e) => {
+                        const newCfg: ImageProcessingConfig = {
+                          ...config,
+                          addBorder: e.target.checked,
+                          borderWidth: config.borderWidth || 20,
+                          borderColor: config.borderColor || '#ffffff',
+                          borderPlacement: config.borderPlacement || 'expand',
+                        };
+                        setConfig(newCfg);
+                        handleReprocess(newCfg);
+                      }}
+                      className="peer sr-only"
+                    />
+                    <div className="peer h-5 w-9 rounded-full bg-slate-300 after:absolute after:top-[2px] after:left-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-focus:outline-none"></div>
+                  </label>
+                </div>
+
+                {/* Quick Presets */}
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                    {lang === 'hi' ? 'त्वरित बॉर्डर प्रीसेट्स' : 'Quick Border Presets'}
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { label: 'None (0px)', bw: 0, color: '#ffffff', place: 'expand' as const, shadow: false },
+                      { label: 'Thin (10px)', bw: 10, color: '#ffffff', place: 'expand' as const, shadow: false },
+                      { label: 'Classic (20px)', bw: 20, color: '#ffffff', place: 'expand' as const, shadow: false },
+                      { label: 'Thick (40px)', bw: 40, color: '#ffffff', place: 'expand' as const, shadow: true },
+                      { label: 'Dark Frame', bw: 20, color: '#000000', place: 'expand' as const, shadow: false },
+                      { label: 'Polaroid Style', bw: 24, color: '#ffffff', place: 'polaroid' as const, shadow: true },
+                    ].map((preset, idx) => {
+                      const isSelected =
+                        config.addBorder &&
+                        config.borderWidth === preset.bw &&
+                        config.borderPlacement === preset.place &&
+                        (preset.bw === 0 ? !config.addBorder : true);
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            const newCfg: ImageProcessingConfig = {
+                              ...config,
+                              addBorder: preset.bw > 0,
+                              borderWidth: preset.bw,
+                              borderColor: preset.color,
+                              borderPlacement: preset.place,
+                              borderShadow: preset.shadow,
+                            };
+                            setConfig(newCfg);
+                            handleReprocess(newCfg);
+                          }}
+                          className={`rounded-lg border px-2.5 py-1.5 text-center text-xs font-semibold transition cursor-pointer ${
+                            isSelected
+                              ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-500/20'
+                              : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Border Width Controls */}
+                <div className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700">
+                      {lang === 'hi' ? 'बॉर्डर की चौड़ाई (Pixel)' : 'Border Width / Padding'}
+                    </label>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min="0"
+                        max="250"
+                        value={config.borderWidth ?? 20}
+                        onChange={(e) => {
+                          const val = Math.max(0, parseInt(e.target.value) || 0);
+                          const newCfg = { ...config, addBorder: val > 0, borderWidth: val };
+                          setConfig(newCfg);
+                          handleReprocess(newCfg);
+                        }}
+                        className="w-16 rounded-md border border-slate-300 px-2 py-0.5 text-center text-xs font-bold text-slate-800"
+                      />
+                      <span className="text-xs text-slate-500 font-semibold">px</span>
+                    </div>
+                  </div>
+
+                  <input
+                    type="range"
+                    min="0"
+                    max="120"
+                    step="1"
+                    value={config.borderWidth ?? 20}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      const newCfg = { ...config, addBorder: val > 0, borderWidth: val };
+                      setConfig(newCfg);
+                      handleReprocess(newCfg);
+                    }}
+                    className="w-full accent-blue-600 cursor-pointer"
+                  />
+
+                  <div className="flex flex-wrap items-center gap-1 pt-1">
+                    {[5, 10, 15, 20, 30, 50, 80].map((px) => (
+                      <button
+                        key={px}
+                        type="button"
+                        onClick={() => {
+                          const newCfg = { ...config, addBorder: true, borderWidth: px };
+                          setConfig(newCfg);
+                          handleReprocess(newCfg);
+                        }}
+                        className={`rounded px-2 py-0.5 text-[11px] font-bold transition cursor-pointer ${
+                          config.borderWidth === px && config.addBorder
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {px}px
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Border Color & Background Fill */}
+                <div className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <Palette className="h-3.5 w-3.5 text-blue-600" />
+                      <span>{lang === 'hi' ? 'बॉर्डर व बैकग्राउंड रंग' : 'Border & Background Color'}</span>
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="color"
+                        value={config.borderColor || config.backgroundColor || '#ffffff'}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const newCfg = { ...config, addBorder: true, borderColor: val, backgroundColor: val };
+                          setConfig(newCfg);
+                          handleReprocess(newCfg);
+                        }}
+                        className="h-6 w-7 rounded border border-slate-300 p-0 cursor-pointer"
+                      />
+                      <span className="text-xs font-mono font-bold text-slate-700 uppercase">
+                        {config.borderColor || config.backgroundColor || '#ffffff'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Swatches */}
+                  <div className="grid grid-cols-6 gap-1.5 pt-1">
+                    {[
+                      { name: 'White', color: '#ffffff', border: true },
+                      { name: 'Snow', color: '#f8fafc', border: true },
+                      { name: 'Black', color: '#000000', border: false },
+                      { name: 'Slate', color: '#0f172a', border: false },
+                      { name: 'Gray', color: '#e2e8f0', border: true },
+                      { name: 'Cream', color: '#fffbeb', border: true },
+                      { name: 'Sky', color: '#e0f2fe', border: true },
+                      { name: 'Red', color: '#ef4444', border: false },
+                      { name: 'Blue', color: '#2563eb', border: false },
+                      { name: 'Emerald', color: '#10b981', border: false },
+                      { name: 'Gold', color: '#eab308', border: false },
+                      { name: 'Purple', color: '#8b5cf6', border: false },
+                    ].map((swatch, idx) => {
+                      const isActive = (config.borderColor || config.backgroundColor || '#ffffff').toLowerCase() === swatch.color.toLowerCase();
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          title={swatch.name}
+                          onClick={() => {
+                            const newCfg = {
+                              ...config,
+                              addBorder: true,
+                              borderColor: swatch.color,
+                              backgroundColor: swatch.color,
+                            };
+                            setConfig(newCfg);
+                            handleReprocess(newCfg);
+                          }}
+                          className={`h-7 w-full rounded-md transition-all flex items-center justify-center cursor-pointer ${
+                            swatch.border ? 'border border-slate-300' : ''
+                          } ${
+                            isActive
+                              ? 'ring-2 ring-blue-600 scale-105 shadow-xs'
+                              : 'hover:scale-105'
+                          }`}
+                          style={{ backgroundColor: swatch.color }}
+                        >
+                          {isActive && (
+                            <Check className={`h-3.5 w-3.5 ${swatch.color === '#ffffff' || swatch.color === '#f8fafc' || swatch.color === '#e2e8f0' || swatch.color === '#fffbeb' || swatch.color === '#e0f2fe' ? 'text-slate-900' : 'text-white'}`} />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Border Placement Mode */}
+                <div className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2.5">
+                  <label className="text-xs font-bold text-slate-700 block">
+                    {lang === 'hi' ? 'बॉर्डर प्लेसमेंट स्टाइल' : 'Border Placement Style'}
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: 'expand', label: lang === 'hi' ? 'कैनवस बढ़ाएं' : 'Expand Canvas', desc: lang === 'hi' ? 'पूरी फोटो सुरक्षित' : 'Keep 100% scale' },
+                      { id: 'inset', label: lang === 'hi' ? 'फिक्स साइज' : 'Fit Inside', desc: lang === 'hi' ? 'समान रेजोल्यूशन' : 'Exact canvas size' },
+                      { id: 'polaroid', label: lang === 'hi' ? 'पोलरॉइड' : 'Polaroid Frame', desc: lang === 'hi' ? 'विंटेज फोटो फ्रेम' : 'Classic bottom margin' },
+                    ].map((mode) => {
+                      const isSelected = (config.borderPlacement || 'expand') === mode.id;
+                      return (
+                        <button
+                          key={mode.id}
+                          type="button"
+                          onClick={() => {
+                            const newCfg: ImageProcessingConfig = {
+                              ...config,
+                              addBorder: true,
+                              borderPlacement: mode.id as any,
+                            };
+                            setConfig(newCfg);
+                            handleReprocess(newCfg);
+                          }}
+                          className={`rounded-lg border p-2 text-left transition cursor-pointer ${
+                            isSelected
+                              ? 'border-blue-600 bg-blue-50/70 text-blue-700 ring-1 ring-blue-500/20'
+                              : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          <p className="text-xs font-bold">{mode.label}</p>
+                          <p className="text-[10px] text-slate-500">{mode.desc}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Inner Photo Corner Radius & Shadow */}
+                <div className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700">
+                      {lang === 'hi' ? 'फोटो के अंदरूनी कोने (Radius)' : 'Inner Corner Radius'}
+                    </label>
+                    <span className="text-xs font-mono font-bold text-slate-700">
+                      {config.borderRadius || 0}px
+                    </span>
+                  </div>
+
+                  <input
+                    type="range"
+                    min="0"
+                    max="50"
+                    step="2"
+                    value={config.borderRadius || 0}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) || 0;
+                      const newCfg = { ...config, borderRadius: val };
+                      setConfig(newCfg);
+                      handleReprocess(newCfg);
+                    }}
+                    className="w-full accent-blue-600 cursor-pointer"
+                  />
+
+                  <div className="flex items-center gap-1.5">
+                    {[0, 8, 16, 24, 36].map((rad) => (
+                      <button
+                        key={rad}
+                        type="button"
+                        onClick={() => {
+                          const newCfg = { ...config, borderRadius: rad };
+                          setConfig(newCfg);
+                          handleReprocess(newCfg);
+                        }}
+                        className={`rounded px-2 py-0.5 text-[11px] font-bold transition cursor-pointer ${
+                          (config.borderRadius || 0) === rad
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {rad === 0 ? 'Sharp (0)' : `${rad}px`}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Soft Drop Shadow Toggle */}
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">
+                        {lang === 'hi' ? 'फोटो पर हल्की छाया (Drop Shadow)' : 'Soft Photo Drop Shadow'}
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        {lang === 'hi' ? 'बॉर्डर के ऊपर 3D एलिवेशन इफ़ेक्ट' : 'Adds realistic depth inside the frame'}
+                      </p>
+                    </div>
+                    <label className="relative inline-flex cursor-pointer items-center">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(config.borderShadow)}
+                        onChange={(e) => {
+                          const newCfg = { ...config, borderShadow: e.target.checked };
+                          setConfig(newCfg);
+                          handleReprocess(newCfg);
+                        }}
+                        className="peer sr-only"
+                      />
+                      <div className="peer h-5 w-9 rounded-full bg-slate-300 after:absolute after:top-[2px] after:left-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-focus:outline-none"></div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Dimension Comparison Info Box */}
+                {previewData && (
+                  <div className="rounded-xl bg-slate-50 p-3 border border-slate-200 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-slate-500 block text-[11px]">
+                        {lang === 'hi' ? 'मूल फोटो रेजोल्यूशन' : 'Original Photo Size'}
+                      </span>
+                      <span className="font-bold text-slate-800">{origW} × {origH} px</span>
+                    </div>
+                    <span className="text-slate-400 font-bold">→</span>
+                    <div className="text-right">
+                      <span className="text-blue-600 block text-[11px] font-bold">
+                        {lang === 'hi' ? 'बॉर्डर सहित अंतिम साइज' : 'Canvas with Border'}
+                      </span>
+                      <span className="font-bold text-blue-700">{previewData.width} × {previewData.height} px</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Refresh Preview */}
+                <button
+                  type="button"
+                  onClick={() => handleReprocess()}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-200 py-2 text-xs font-bold text-slate-800 hover:bg-slate-300 transition cursor-pointer"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  <span>{lang === 'hi' ? 'रिफ्रेश प्रीव्यू देखें' : 'Refresh Live Preview'}</span>
+                </button>
+              </div>
+            )}
+
           </div>
         </div>
 
@@ -948,13 +1470,13 @@ export const SingleImageEditorModal: React.FC<SingleImageEditorModalProps> = ({
               {lang === 'hi' ? 'रद्द करें' : 'Cancel'}
             </button>
 
-            {activeTab === 'tune' && (
+            {activeTab !== 'crop' && (
               <button
                 type="button"
                 onClick={() => setActiveTab('crop')}
                 className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
               >
-                ← Back to Crop
+                ← {lang === 'hi' ? 'क्रॉप पर वापस जाएं' : 'Back to Crop'}
               </button>
             )}
           </div>

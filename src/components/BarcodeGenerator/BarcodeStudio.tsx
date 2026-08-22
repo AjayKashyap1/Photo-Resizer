@@ -15,6 +15,7 @@ import {
   sanitizeBarcodeText,
 } from '../../utils/barcodeGenerator';
 import { downloadBlob } from '../../utils/zipExporter';
+import { historyLogger } from '../../utils/historyLogger';
 import {
   Barcode,
   QrCode,
@@ -138,6 +139,24 @@ export const BarcodeStudio: React.FC<BarcodeStudioProps> = ({
     if (!previewBlob) return;
     const filename = `${config.type}_${config.text.replace(/[^a-zA-Z0-9_-]/g, '_')}.png`;
     downloadBlob(previewBlob, filename);
+
+    historyLogger.log(
+      'success',
+      'barcode',
+      'Barcode Downloaded',
+      `Saved barcode ${config.type.toUpperCase()}: "${config.text}" as PNG.`
+    );
+
+    historyLogger.addHistory({
+      actionType: 'barcode_single',
+      title: `Generated Barcode: ${config.type.toUpperCase()}`,
+      summary: `Created ${config.type.toUpperCase()} barcode for "${config.text}"`,
+      itemCount: 1,
+      previewUrls: [previewDataUrl],
+      metadata: {
+        barcodeType: config.type,
+      },
+    });
   };
 
   const handleDownloadSVG = () => {
@@ -145,6 +164,13 @@ export const BarcodeStudio: React.FC<BarcodeStudioProps> = ({
     const blob = new Blob([svgString], { type: 'image/svg+xml' });
     const filename = `${config.type}_${config.text.replace(/[^a-zA-Z0-9_-]/g, '_')}.svg`;
     downloadBlob(blob, filename);
+
+    historyLogger.log(
+      'success',
+      'barcode',
+      'Barcode Vector SVG Downloaded',
+      `Saved vector SVG ${config.type.toUpperCase()}: "${config.text}".`
+    );
   };
 
   const handleAddToBatch = () => {
@@ -159,6 +185,14 @@ export const BarcodeStudio: React.FC<BarcodeStudioProps> = ({
       svgString: svgString,
       blob: previewBlob,
     });
+
+    historyLogger.log(
+      'info',
+      'barcode',
+      'Barcode Added to Batch Queue',
+      `Queued ${config.type.toUpperCase()} "${config.text}" into batch manager.`
+    );
+
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

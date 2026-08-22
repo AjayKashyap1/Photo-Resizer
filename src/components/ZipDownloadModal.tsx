@@ -6,6 +6,7 @@ import {
   exportAllBundleZip,
   downloadBlob,
 } from '../utils/zipExporter';
+import { historyLogger } from '../utils/historyLogger';
 import confetti from 'canvas-confetti';
 import {
   X,
@@ -93,6 +94,33 @@ export const ZipDownloadModal: React.FC<ZipDownloadModalProps> = ({
       setProgressPercent(100);
       setProgressStatus('Download started!');
       downloadBlob(zipBlob, targetName);
+
+      // Record to history and system logs
+      const totalItems =
+        exportType === 'images'
+          ? readyImagesCount
+          : exportType === 'barcodes'
+          ? readyBarcodesCount
+          : readyImagesCount + readyBarcodesCount;
+
+      historyLogger.log(
+        'success',
+        'export',
+        'ZIP Archive Exported',
+        `Successfully packaged ${totalItems} items into "${targetName}" (${(zipBlob.size / (1024 * 1024)).toFixed(2)} MB).`,
+        { targetName, exportType, totalItems, zipSize: zipBlob.size }
+      );
+
+      historyLogger.addHistory({
+        actionType: 'zip_export',
+        title: `Exported Archive: ${targetName}`,
+        summary: `Created ZIP archive with ${totalItems} items (${(zipBlob.size / (1024 * 1024)).toFixed(2)} MB)`,
+        itemCount: totalItems,
+        processedTotalSize: zipBlob.size,
+        metadata: {
+          exportFilename: targetName,
+        },
+      });
 
       // Nice UX confetti celebration
       try {
