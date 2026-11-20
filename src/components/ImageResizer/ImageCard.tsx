@@ -13,6 +13,7 @@ import {
   TrendingDown,
   Zap,
   Frame,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 interface ImageCardProps {
@@ -21,7 +22,7 @@ interface ImageCardProps {
   onDownload: (item: ProcessedImageItem) => void;
   onDelete: (id: string) => void;
   onInspect: (item: ProcessedImageItem) => void;
-  onEdit: (item: ProcessedImageItem) => void;
+  onEdit: (item: ProcessedImageItem, initialTab?: 'crop' | 'tune' | 'border') => void;
   lang: 'en' | 'hi';
 }
 
@@ -176,20 +177,32 @@ export const ImageCard: React.FC<ImageCardProps> = ({
           )}
         </div>
 
-        {/* Single Download button */}
-        <button
-          type="button"
-          onClick={() => onDownload(item)}
-          disabled={!item.outputBlob}
-          className={`mt-1 flex w-full items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold transition ${
-            item.outputBlob
-              ? 'bg-slate-900 text-white hover:bg-blue-600 active:scale-98 shadow-2xs'
-              : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-          }`}
-        >
-          <Download className="h-3.5 w-3.5" />
-          <span>{lang === 'hi' ? 'डाउनलोड करें' : 'Download Photo'}</span>
-        </button>
+        {/* Quick Action Row: Manual Px / Size + Download */}
+        <div className="mt-1 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => onEdit(item, 'tune')}
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-700 transition cursor-pointer"
+            title="Set manual pixel dimensions and target file size"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span>{lang === 'hi' ? 'मैन्युअल Px' : 'Manual Px'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onDownload(item)}
+            disabled={!item.outputBlob}
+            className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold transition ${
+              item.outputBlob
+                ? 'bg-slate-900 text-white hover:bg-blue-600 active:scale-98 shadow-2xs cursor-pointer'
+                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+            }`}
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>{lang === 'hi' ? 'डाउनलोड' : 'Download'}</span>
+          </button>
+        </div>
       </div>
 
     </div>

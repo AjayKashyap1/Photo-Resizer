@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { ImageProcessingConfig, ProcessedImageItem, SupportedFormat } from '../../types';
+import {
+  ImageProcessingConfig,
+  ProcessedImageItem,
+  SupportedFormat,
+  PhotoManualFitMode,
+  FileSizeUnit,
+} from '../../types';
 import { processImage, formatBytes } from '../../utils/imageProcessor';
 import { CropToolOverlay, CropRect } from './CropToolOverlay';
 import {
@@ -28,11 +34,14 @@ import {
   Palette,
   Paintbrush,
   Square,
+  ArrowLeftRight,
+  HardDrive,
 } from 'lucide-react';
 
 interface SingleImageEditorModalProps {
   item: ProcessedImageItem | null;
   baseConfig: ImageProcessingConfig;
+  initialTab?: 'crop' | 'tune' | 'border';
   onSave: (updatedItem: ProcessedImageItem) => void;
   onClose: () => void;
   lang: 'en' | 'hi';
@@ -60,6 +69,7 @@ const ASPECT_PRESETS: AspectPreset[] = [
 export const SingleImageEditorModal: React.FC<SingleImageEditorModalProps> = ({
   item,
   baseConfig,
+  initialTab = 'crop',
   onSave,
   onClose,
   lang,
@@ -70,7 +80,8 @@ export const SingleImageEditorModal: React.FC<SingleImageEditorModalProps> = ({
   const origH = item.originalHeight;
 
   // Active Editor Sub-tab
-  const [activeTab, setActiveTab] = useState<'crop' | 'tune' | 'border'>('crop');
+  const [activeTab, setActiveTab] = useState<'crop' | 'tune' | 'border'>(initialTab);
+  const [sizeUnit, setSizeUnit] = useState<FileSizeUnit>('KB');
 
   // Initial Crop setup
   const initialCrop: CropRect = item.customConfig?.crop || {
@@ -93,7 +104,16 @@ export const SingleImageEditorModal: React.FC<SingleImageEditorModalProps> = ({
     width: item.customConfig?.width || item.outputWidth || initialCrop.width,
     height: item.customConfig?.height || item.outputHeight || initialCrop.height,
     aspectRatio: initialCrop.width / initialCrop.height,
+    manualFitMode: item.customConfig?.manualFitMode || baseConfig.manualFitMode || 'cover',
   });
+
+  const [widthDraft, setWidthDraft] = useState<string>(String(config.width));
+  const [heightDraft, setHeightDraft] = useState<string>(String(config.height));
+
+  useEffect(() => {
+    setWidthDraft(String(config.width));
+    setHeightDraft(String(config.height));
+  }, [config.width, config.height]);
 
   const [isRendering, setIsRendering] = useState(false);
   const [previewData, setPreviewData] = useState<{
@@ -664,26 +684,169 @@ export const SingleImageEditorModal: React.FC<SingleImageEditorModalProps> = ({
                   </div>
                 </div>
 
-                {/* Output Dimensions & Ratio Control */}
-                <div className="space-y-2.5">
+                {/* Manual Output Pixel Dimensions & Fit Control */}
+                <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
                   <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      {lang === 'hi' ? 'आउटपुट पिक्सेल आकार व अनुपात' : 'Output Dimensions & Ratio'}
+                    <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      {lang === 'hi' ? 'मैन्युअल पिक्सेल (W × H px)' : 'Manual Pixel Dimensions'}
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('crop')}
-                      className="text-[11px] font-bold text-blue-600 hover:underline flex items-center gap-1 cursor-pointer"
-                    >
-                      <Crop className="h-3 w-3" />
-                      <span>{lang === 'hi' ? 'क्रॉप एडिटर' : 'Crop Tool'}</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newCfg = {
+                            ...config,
+                            resizeMode: 'exact' as const,
+                            width: crop.width,
+                            height: crop.height,
+                            aspectRatio: crop.width / Math.max(1, crop.height),
+                          };
+                          setConfig(newCfg);
+                          handleReprocess(newCfg);
+                        }}
+                        className="text-[11px] font-semibold text-slate-500 hover:text-blue-600 cursor-pointer"
+                      >
+                        {lang === 'hi' ? 'मूल आकार' : 'Reset Px'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('crop')}
+                        className="text-[11px] font-bold text-blue-600 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <Crop className="h-3 w-3" />
+                        <span>{lang === 'hi' ? 'क्रॉप' : 'Crop'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Manual Width & Height Inputs + Lock + Swap */}
+                  <div className="flex items-center gap-1.5">
+                    <div className="flex-1">
+                      <span className="block text-[10px] font-semibold text-slate-500 mb-0.5">Width (px)</span>
+                      <input
+                        id="single-manual-width-input"
+                        type="number"
+                        min="1"
+                        value={widthDraft}
+                        onChange={(e) => {
+                          setWidthDraft(e.target.value);
+                          const w = parseInt(e.target.value, 10);
+                          if (!Number.isFinite(w) || w < 1) return;
+                          const h = config.maintainAspectRatio
+                            ? Math.max(1, Math.round(w / Math.max(0.01, config.aspectRatio)))
+                            : config.height;
+                          setConfig({ ...config, resizeMode: 'exact', width: w, height: h });
+                        }}
+                        onBlur={() => setWidthDraft(String(config.width))}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono tabular-nums text-xs font-bold text-slate-900 focus:border-blue-500 focus:bg-white focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1 pt-4">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setConfig({
+                            ...config,
+                            maintainAspectRatio: !config.maintainAspectRatio,
+                            aspectRatio: config.width / Math.max(1, config.height),
+                          })
+                        }
+                        title={
+                          config.maintainAspectRatio
+                            ? 'Aspect Ratio Locked (click for Free Manual Px)'
+                            : 'Free Manual Px (unlocked)'
+                        }
+                        className={`flex h-8 w-8 items-center justify-center rounded-lg border transition cursor-pointer ${
+                          config.maintainAspectRatio
+                            ? 'border-blue-500 bg-blue-50 text-blue-600'
+                            : 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                        }`}
+                      >
+                        {config.maintainAspectRatio ? (
+                          <Lock className="h-3.5 w-3.5" />
+                        ) : (
+                          <Unlock className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const swapped = {
+                            ...config,
+                            resizeMode: 'exact' as const,
+                            width: config.height,
+                            height: config.width,
+                            maintainAspectRatio: false,
+                            aspectRatio: config.height / Math.max(1, config.width),
+                          };
+                          setConfig(swapped);
+                          handleReprocess(swapped);
+                        }}
+                        title="Swap Width & Height"
+                        className="flex h-8 w-7 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 cursor-pointer"
+                      >
+                        <ArrowLeftRight className="h-3 w-3" />
+                      </button>
+                    </div>
+                    <div className="flex-1">
+                      <span className="block text-[10px] font-semibold text-slate-500 mb-0.5">Height (px)</span>
+                      <input
+                        id="single-manual-height-input"
+                        type="number"
+                        min="1"
+                        value={heightDraft}
+                        onChange={(e) => {
+                          setHeightDraft(e.target.value);
+                          const h = parseInt(e.target.value, 10);
+                          if (!Number.isFinite(h) || h < 1) return;
+                          const w = config.maintainAspectRatio
+                            ? Math.max(1, Math.round(h * config.aspectRatio))
+                            : config.width;
+                          setConfig({ ...config, resizeMode: 'exact', height: h, width: w });
+                        }}
+                        onBlur={() => setHeightDraft(String(config.height))}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono tabular-nums text-xs font-bold text-slate-900 focus:border-blue-500 focus:bg-white focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Manual Fit Mode Selector (when aspect differs) */}
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <span className="text-[10px] font-semibold text-slate-500">
+                      {lang === 'hi' ? 'मैन्युअल फिट मोड:' : 'Manual Fit Behavior:'}
+                    </span>
+                    <div className="grid grid-cols-3 gap-1">
+                      {(
+                        [
+                          { id: 'cover', label: 'Crop Fill' },
+                          { id: 'contain', label: 'Fit Pad' },
+                          { id: 'stretch', label: 'Stretch' },
+                        ] as { id: PhotoManualFitMode; label: string }[]
+                      ).map((mode) => (
+                        <button
+                          key={mode.id}
+                          type="button"
+                          onClick={() => {
+                            const updated = { ...config, manualFitMode: mode.id };
+                            setConfig(updated);
+                            handleReprocess(updated);
+                          }}
+                          className={`rounded-md px-2 py-0.5 text-[10px] font-bold transition cursor-pointer ${
+                            (config.manualFitMode || 'cover') === mode.id
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {mode.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Quick Ratio Change Buttons */}
-                  <div className="space-y-1">
+                  <div className="space-y-1 pt-1 border-t border-slate-100">
                     <span className="block text-[10px] font-semibold text-slate-500">
-                      {lang === 'hi' ? 'अनुपात बदलें (Aspect Ratio Override)' : 'Change Aspect Ratio'}
+                      {lang === 'hi' ? 'त्वरित अनुपात (Aspect Ratio)' : 'Quick Aspect Ratio'}
                     </span>
                     <div className="grid grid-cols-4 gap-1.5">
                       {[
@@ -696,7 +859,7 @@ export const SingleImageEditorModal: React.FC<SingleImageEditorModalProps> = ({
                         { label: '35:45', ratio: 35 / 45 },
                         { label: 'Orig', ratio: origW / origH },
                       ].map((rItem) => {
-                        const isCurrent = Math.abs((config.width / config.height) - rItem.ratio) < 0.02;
+                        const isCurrent = Math.abs(config.width / Math.max(1, config.height) - rItem.ratio) < 0.02;
                         return (
                           <button
                             key={rItem.label}
@@ -705,13 +868,15 @@ export const SingleImageEditorModal: React.FC<SingleImageEditorModalProps> = ({
                               const newHeight = Math.max(1, Math.round(config.width / rItem.ratio));
                               const newCfg = {
                                 ...config,
+                                resizeMode: 'exact' as const,
                                 height: newHeight,
                                 aspectRatio: rItem.ratio,
-                                maintainAspectRatio: true,
+                                maintainAspectRatio: false,
                               };
                               setConfig(newCfg);
+                              handleReprocess(newCfg);
                             }}
-                            className={`rounded-lg py-1 px-1.5 text-[11px] font-bold transition border ${
+                            className={`rounded-lg py-1 px-1.5 text-[11px] font-bold transition border cursor-pointer ${
                               isCurrent
                                 ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-2xs'
                                 : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
@@ -723,66 +888,103 @@ export const SingleImageEditorModal: React.FC<SingleImageEditorModalProps> = ({
                       })}
                     </div>
                   </div>
+                </div>
+
+                {/* Single Photo Target File Size Control (KB / MB) */}
+                <div className="space-y-2.5 rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      <HardDrive className="h-3.5 w-3.5 text-blue-600" />
+                      <span>{lang === 'hi' ? 'फाइल साइज बदलें (KB/MB)' : 'Change File Size'}</span>
+                    </label>
+                    <div className="flex items-center gap-0.5 rounded-md bg-slate-100 p-0.5 border border-slate-200">
+                      {(['KB', 'MB'] as FileSizeUnit[]).map((u) => (
+                        <button
+                          key={u}
+                          type="button"
+                          onClick={() => setSizeUnit(u)}
+                          className={`rounded px-1.5 py-0.5 text-[10px] font-bold transition cursor-pointer ${
+                            sizeUnit === u ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600'
+                          }`}
+                        >
+                          {u}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
                   <div className="flex items-center gap-2">
-                    <div className="flex-1">
-                      <span className="block text-[10px] font-semibold text-slate-500">Width (px)</span>
-                      <input
-                        type="number"
-                        min="1"
-                        value={config.width}
-                        onChange={(e) => {
-                          const w = Math.max(1, Number(e.target.value));
-                          const h = config.maintainAspectRatio
-                            ? Math.max(1, Math.round(w / config.aspectRatio))
-                            : config.height;
-                          const newCfg = { ...config, width: w, height: h };
-                          setConfig(newCfg);
-                        }}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-900 focus:border-blue-500 focus:outline-none"
-                      />
-                    </div>
-                    <div className="pt-4">
+                    <input
+                      id="single-target-size-input"
+                      type="number"
+                      min="0"
+                      step={sizeUnit === 'MB' ? '0.1' : '1'}
+                      placeholder="0 (Auto)"
+                      value={
+                        config.targetMaxKb > 0
+                          ? sizeUnit === 'MB'
+                            ? Number((config.targetMaxKb / 1024).toFixed(2))
+                            : config.targetMaxKb
+                          : ''
+                      }
+                      onChange={(e) => {
+                        const val = Math.max(0, parseFloat(e.target.value) || 0);
+                        const kb = sizeUnit === 'MB' ? Math.round(val * 1024) : Math.round(val);
+                        setConfig({
+                          ...config,
+                          targetMaxKb: kb,
+                          format: kb > 0 && config.format === 'image/png' ? 'image/jpeg' : config.format,
+                        });
+                      }}
+                      className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 font-mono tabular-nums text-xs font-bold text-slate-900 focus:border-blue-500 focus:bg-white focus:outline-none"
+                    />
+                    <span className="text-xs font-bold text-slate-600">{sizeUnit}</span>
+                    {config.targetMaxKb > 0 && (
                       <button
                         type="button"
-                        onClick={() =>
-                          setConfig({
+                        onClick={() => {
+                          const updated = { ...config, targetMaxKb: 0 };
+                          setConfig(updated);
+                          handleReprocess(updated);
+                        }}
+                        className="rounded-lg border border-slate-200 px-2 py-1 text-[10px] font-bold text-red-600 hover:bg-red-50 cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1">
+                    {[
+                      { label: '20 KB', kb: 20, u: 'KB' as FileSizeUnit },
+                      { label: '50 KB', kb: 50, u: 'KB' as FileSizeUnit },
+                      { label: '100 KB', kb: 100, u: 'KB' as FileSizeUnit },
+                      { label: '200 KB', kb: 200, u: 'KB' as FileSizeUnit },
+                      { label: '500 KB', kb: 500, u: 'KB' as FileSizeUnit },
+                      { label: '1 MB', kb: 1024, u: 'MB' as FileSizeUnit },
+                    ].map((opt) => (
+                      <button
+                        key={opt.label}
+                        type="button"
+                        onClick={() => {
+                          setSizeUnit(opt.u);
+                          const updated: ImageProcessingConfig = {
                             ...config,
-                            maintainAspectRatio: !config.maintainAspectRatio,
-                            aspectRatio: config.width / config.height,
-                          })
-                        }
-                        title={config.maintainAspectRatio ? 'Aspect Ratio Locked' : 'Aspect Ratio Unlocked'}
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg border transition ${
-                          config.maintainAspectRatio
-                            ? 'border-blue-500 bg-blue-50 text-blue-600'
-                            : 'border-slate-200 bg-white text-slate-400'
+                            targetMaxKb: opt.kb,
+                            format: config.format === 'image/png' ? 'image/jpeg' : config.format,
+                          };
+                          setConfig(updated);
+                          handleReprocess(updated);
+                        }}
+                        className={`rounded-md border px-2 py-0.5 font-mono tabular-nums text-[10px] font-semibold transition cursor-pointer ${
+                          config.targetMaxKb === opt.kb
+                            ? 'border-blue-600 bg-blue-50 text-blue-700'
+                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
                         }`}
                       >
-                        {config.maintainAspectRatio ? (
-                          <Lock className="h-3.5 w-3.5" />
-                        ) : (
-                          <Unlock className="h-3.5 w-3.5" />
-                        )}
+                        {opt.label}
                       </button>
-                    </div>
-                    <div className="flex-1">
-                      <span className="block text-[10px] font-semibold text-slate-500">Height (px)</span>
-                      <input
-                        type="number"
-                        min="1"
-                        value={config.height}
-                        onChange={(e) => {
-                          const h = Math.max(1, Number(e.target.value));
-                          const w = config.maintainAspectRatio
-                            ? Math.max(1, Math.round(h * config.aspectRatio))
-                            : config.width;
-                          const newCfg = { ...config, height: h, width: w };
-                          setConfig(newCfg);
-                        }}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-900 focus:border-blue-500 focus:outline-none"
-                      />
-                    </div>
+                    ))}
                   </div>
                 </div>
 

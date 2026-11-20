@@ -9,6 +9,7 @@ export const DEFAULT_CONFIG: ImageProcessingConfig = {
   height: 800,
   maintainAspectRatio: true,
   aspectRatio: 1200 / 800,
+  manualFitMode: 'cover',
   percentage: 100,
   targetMaxKb: 0, // 0 = disabled
   format: 'image/jpeg',
@@ -380,7 +381,49 @@ export async function processImage(
 
   const unrotatedDrawW = isRotated ? drawH : drawW;
   const unrotatedDrawH = isRotated ? drawW : drawH;
-  ctx.drawImage(renderSource, -unrotatedDrawW / 2, -unrotatedDrawH / 2, unrotatedDrawW, unrotatedDrawH);
+
+  // Apply manualFitMode when target aspect ratio differs from source aspect ratio
+  const fitMode = config.manualFitMode || 'stretch';
+  const renderSrcW = renderSource instanceof HTMLCanvasElement ? renderSource.width : sourceW;
+  const renderSrcH = renderSource instanceof HTMLCanvasElement ? renderSource.height : sourceH;
+  const srcAspect = renderSrcW / Math.max(1, renderSrcH);
+  const dstAspect = unrotatedDrawW / Math.max(1, unrotatedDrawH);
+  const aspectDiffers = Math.abs(srcAspect - dstAspect) > 0.015;
+
+  if (aspectDiffers && fitMode === 'cover') {
+    // Smart center-crop to fill exact manual pixel dimensions without stretching
+    let sx = 0;
+    let sy = 0;
+    let sw = renderSrcW;
+    let sh = renderSrcH;
+    if (srcAspect > dstAspect) {
+      sw = Math.round(renderSrcH * dstAspect);
+      sx = Math.round((renderSrcW - sw) / 2);
+    } else {
+      sh = Math.round(renderSrcW / dstAspect);
+      sy = Math.round((renderSrcH - sh) / 2);
+    }
+    ctx.drawImage(
+      renderSource,
+      sx,
+      sy,
+      sw,
+      sh,
+      -unrotatedDrawW / 2,
+      -unrotatedDrawH / 2,
+      unrotatedDrawW,
+      unrotatedDrawH
+    );
+  } else if (aspectDiffers && fitMode === 'contain') {
+    // Fit entire photo inside manual pixel box with background fill padding
+    const scale = Math.min(unrotatedDrawW / renderSrcW, unrotatedDrawH / renderSrcH);
+    const fitW = Math.round(renderSrcW * scale);
+    const fitH = Math.round(renderSrcH * scale);
+    ctx.drawImage(renderSource, -fitW / 2, -fitH / 2, fitW, fitH);
+  } else {
+    // Stretch or matching aspect ratio
+    ctx.drawImage(renderSource, -unrotatedDrawW / 2, -unrotatedDrawH / 2, unrotatedDrawW, unrotatedDrawH);
+  }
   ctx.restore();
 
   // Sharpening if requested
@@ -457,22 +500,28 @@ export async function processImage(
   let finalBlob: Blob;
 
   if (config.targetMaxKb && config.targetMaxKb > 0 && config.format !== 'image/png') {
-    // Binary search quality to hit target size in KB
+    // High-precision binary search on quality to match target file size in KB
     const targetBytes = config.targetMaxKb * 1024;
-    let minQ = 0.05;
-    let maxQ = 0.98;
+    let minQ = 0.02;
+    let maxQ = 0.99;
     let bestBlob: Blob | null = null;
 
-    for (let i = 0; i < 6; i++) {
-      const testQ = (minQ + maxQ) / 2;
-      const blob = await canvasToBlob(canvas, config.format, testQ);
-      if (!blob) break;
+    // First check max quality — if already under target, use high quality directly
+    const highBlob = await canvasToBlob(canvas, config.format, maxQ);
+    if (highBlob && highBlob.size <= targetBytes) {
+      bestBlob = highBlob;
+    } else {
+      for (let i = 0; i < 10; i++) {
+        const testQ = (minQ + maxQ) / 2;
+        const blob = await canvasToBlob(canvas, config.format, testQ);
+        if (!blob) break;
 
-      if (blob.size <= targetBytes) {
-        bestBlob = blob;
-        minQ = testQ; // try higher quality
-      } else {
-        maxQ = testQ; // reduce quality
+        if (blob.size <= targetBytes) {
+          bestBlob = blob;
+          minQ = testQ; // try higher quality while staying under target
+        } else {
+          maxQ = testQ; // reduce quality
+        }
       }
     }
 

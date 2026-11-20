@@ -7,6 +7,7 @@ export type DimensionUnit = 'px' | '%' | 'mm' | 'cm' | 'in';
 export type UpscaleFactor = 2 | 4 | 8;
 export type UpscaleEngine = 'super_resolution' | 'smart_sharpen' | 'smooth_bicubic' | 'pixel_art';
 export type BorderPlacement = 'expand' | 'inset' | 'polaroid';
+export type PhotoManualFitMode = 'stretch' | 'cover' | 'contain';
 
 export interface ImageProcessingConfig {
   resizeMode: ResizeMode;
@@ -14,6 +15,7 @@ export interface ImageProcessingConfig {
   height: number;
   maintainAspectRatio: boolean;
   aspectRatio: number;
+  manualFitMode?: PhotoManualFitMode; // How photo fits when manual WxH differs from original aspect
   percentage: number;
   targetMaxKb: number; // Target file size in KB (0 = off)
   format: SupportedFormat;
@@ -54,6 +56,62 @@ export interface ImageProcessingConfig {
   overlayPosition: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'center' | 'bottom-center';
   overlayScale: number; // 10% to 50% of image width
   overlayOpacity: number; // 0.1 to 1
+}
+
+export type VideoFitMode = 'contain' | 'cover' | 'stretch';
+export type VideoSizeControlMode = 'target_size' | 'bitrate';
+export type FileSizeUnit = 'KB' | 'MB';
+
+export interface VideoProcessingConfig {
+  width: number;
+  height: number;
+  maintainAspectRatio: boolean;
+  fitMode: VideoFitMode;
+  backgroundColor: string;
+  fps: 24 | 30 | 60;
+  sizeControlMode: VideoSizeControlMode;
+  videoBitrateKbps: number;
+  targetFileSizeValue: number;
+  targetFileSizeUnit: FileSizeUnit;
+  includeAudio: boolean;
+  audioBitrateKbps: number;
+  mimeType: string;
+  trimStart: number;
+  trimEnd: number;
+}
+
+export interface VideoPreset {
+  id: string;
+  name: string;
+  ratioLabel: string;
+  width: number;
+  height: number;
+  description: string;
+}
+
+export interface LoadedVideoItem {
+  id: string;
+  name: string;
+  url: string;
+  file: File | Blob;
+  width: number;
+  height: number;
+  duration: number;
+  size: number;
+  mimeType: string;
+  thumbnailUrl?: string;
+}
+
+export interface ProcessedVideoResult {
+  blob: Blob;
+  url: string;
+  width: number;
+  height: number;
+  size: number;
+  duration: number;
+  mimeType: string;
+  extension: string;
+  appliedVideoBitrateKbps: number;
 }
 
 export interface ProcessedImageItem {

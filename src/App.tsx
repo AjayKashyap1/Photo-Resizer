@@ -3,6 +3,7 @@ import {
   ImageProcessingConfig,
   ProcessedImageItem,
   BulkBarcodeItem,
+  LoadedVideoItem,
 } from './types';
 import {
   DEFAULT_CONFIG,
@@ -21,6 +22,7 @@ import { BarcodeStudio } from './components/BarcodeGenerator/BarcodeStudio';
 import { BulkBarcodeManager } from './components/BarcodeGenerator/BulkBarcodeManager';
 import { PrintableSheetModal } from './components/BarcodeGenerator/PrintableSheetModal';
 import { BarcodeOverlayTool } from './components/BarcodeOverlayTool';
+import { VideoEditorStudio } from './components/VideoEditor/VideoEditorStudio';
 import { ZipDownloadModal } from './components/ZipDownloadModal';
 import { HistoryAndLogsView } from './components/HistoryAndLogs/HistoryAndLogsView';
 import { historyLogger, LogEntry } from './utils/historyLogger';
@@ -42,7 +44,7 @@ import {
 
 export default function App() {
   const [lang, setLang] = useState<'en' | 'hi'>('en');
-  const [activeTab, setActiveTab] = useState<'resizer' | 'barcode' | 'overlay' | 'history'>('resizer');
+  const [activeTab, setActiveTab] = useState<'resizer' | 'video' | 'barcode' | 'overlay' | 'history'>('resizer');
   const [latestLog, setLatestLog] = useState<LogEntry | null>(null);
   
   // Images state
@@ -50,12 +52,16 @@ export default function App() {
   const [globalConfig, setGlobalConfig] = useState<ImageProcessingConfig>(DEFAULT_CONFIG);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Video state
+  const [loadedVideo, setLoadedVideo] = useState<LoadedVideoItem | null>(null);
+
   // Barcodes state
   const [barcodes, setBarcodes] = useState<BulkBarcodeItem[]>([]);
 
   // Modals state
   const [inspectItem, setInspectItem] = useState<ProcessedImageItem | null>(null);
   const [editItem, setEditItem] = useState<ProcessedImageItem | null>(null);
+  const [editInitialTab, setEditInitialTab] = useState<'crop' | 'tune' | 'border'>('crop');
   const [showZipModal, setShowZipModal] = useState(false);
   const [showPrintSheetModal, setShowPrintSheetModal] = useState(false);
 
@@ -352,6 +358,7 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         imageCount={images.length}
+        hasVideo={Boolean(loadedVideo)}
         barcodeCount={barcodes.length}
         onDownloadAllZip={() => setShowZipModal(true)}
         onClearAll={handleClearAll}
@@ -448,7 +455,10 @@ export default function App() {
                       onDownload={handleDownloadSingleImage}
                       onDelete={handleDeleteImage}
                       onInspect={(it) => setInspectItem(it)}
-                      onEdit={(it) => setEditItem(it)}
+                      onEdit={(it, tab) => {
+                        setEditInitialTab(tab || 'crop');
+                        setEditItem(it);
+                      }}
                       lang={lang}
                     />
                   ))}
@@ -457,6 +467,17 @@ export default function App() {
               </div>
             )}
 
+          </div>
+        )}
+
+        {/* TAB 2: Video Dimension & File Size Studio */}
+        {activeTab === 'video' && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            <VideoEditorStudio
+              lang={lang}
+              loadedVideo={loadedVideo}
+              onVideoLoaded={setLoadedVideo}
+            />
           </div>
         )}
 
@@ -502,7 +523,10 @@ export default function App() {
                     onDownload={handleDownloadSingleImage}
                     onDelete={handleDeleteImage}
                     onInspect={(it) => setInspectItem(it)}
-                    onEdit={(it) => setEditItem(it)}
+                    onEdit={(it, tab) => {
+                      setEditInitialTab(tab || 'crop');
+                      setEditItem(it);
+                    }}
                     lang={lang}
                   />
                 ))}
@@ -610,6 +634,7 @@ export default function App() {
         <SingleImageEditorModal
           item={editItem}
           baseConfig={globalConfig}
+          initialTab={editInitialTab}
           onSave={handleSaveEditedItem}
           onClose={() => setEditItem(null)}
           lang={lang}

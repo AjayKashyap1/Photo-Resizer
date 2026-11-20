@@ -34,11 +34,12 @@ import {
   ArrowRight,
   Sliders,
   Frame,
+  Film,
 } from 'lucide-react';
 
 interface HistoryAndLogsViewProps {
   lang: 'en' | 'hi';
-  onNavigateToTab?: (tab: 'resizer' | 'barcode' | 'overlay') => void;
+  onNavigateToTab?: (tab: 'resizer' | 'video' | 'barcode' | 'overlay') => void;
 }
 
 export const HistoryAndLogsView: React.FC<HistoryAndLogsViewProps> = ({
@@ -111,6 +112,8 @@ export const HistoryAndLogsView: React.FC<HistoryAndLogsViewProps> = ({
         return <Layers className="h-4 w-4 text-indigo-600" />;
       case 'zip_export':
         return <FileArchive className="h-4 w-4 text-orange-600" />;
+      case 'video_edit':
+        return <Film className="h-4 w-4 text-indigo-600" />;
       default:
         return <History className="h-4 w-4 text-slate-600" />;
     }
@@ -171,6 +174,7 @@ export const HistoryAndLogsView: React.FC<HistoryAndLogsViewProps> = ({
     if (!matchesSearch) return false;
     if (historyFilter === 'all') return true;
     if (historyFilter === 'resize' && (item.actionType === 'image_resize' || item.actionType === 'image_upscale' || item.actionType === 'border_frame')) return true;
+    if (historyFilter === 'video' && item.actionType === 'video_edit') return true;
     if (historyFilter === 'barcode' && (item.actionType === 'barcode_single' || item.actionType === 'barcode_batch')) return true;
     if (historyFilter === 'export' && item.actionType === 'zip_export') return true;
     return item.actionType === historyFilter;
@@ -329,6 +333,7 @@ export const HistoryAndLogsView: React.FC<HistoryAndLogsViewProps> = ({
               {[
                 { id: 'all', label: lang === 'hi' ? 'सभी' : 'All' },
                 { id: 'resize', label: lang === 'hi' ? 'फोटो रिसाइज़' : 'Photo Resizer' },
+                { id: 'video', label: lang === 'hi' ? 'वीडियो एडिटर' : 'Video Editor' },
                 { id: 'barcode', label: lang === 'hi' ? 'बारकोड' : 'Barcode & QR' },
                 { id: 'export', label: lang === 'hi' ? 'ZIP एक्सपोर्ट' : 'ZIP Export' },
               ].map((f) => (
@@ -557,6 +562,7 @@ export const HistoryAndLogsView: React.FC<HistoryAndLogsViewProps> = ({
             >
               <option value="all">{lang === 'hi' ? 'सभी श्रेणियां (Categories)' : 'All Categories'}</option>
               <option value="resizer">Image Resizer</option>
+              <option value="video">Video Editor</option>
               <option value="upscale">AI Upscaling</option>
               <option value="border">Border & Frame</option>
               <option value="barcode">Barcode & QR</option>

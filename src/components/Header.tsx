@@ -8,13 +8,15 @@ import {
   Sparkles,
   Zap,
   History,
+  Film,
 } from 'lucide-react';
 import { historyLogger } from '../utils/historyLogger';
 
 interface HeaderProps {
-  activeTab: 'resizer' | 'barcode' | 'overlay' | 'history';
-  setActiveTab: (tab: 'resizer' | 'barcode' | 'overlay' | 'history') => void;
+  activeTab: 'resizer' | 'video' | 'barcode' | 'overlay' | 'history';
+  setActiveTab: (tab: 'resizer' | 'video' | 'barcode' | 'overlay' | 'history') => void;
   imageCount: number;
+  hasVideo: boolean;
   barcodeCount: number;
   onDownloadAllZip: () => void;
   onClearAll: () => void;
@@ -27,6 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeTab,
   setActiveTab,
   imageCount,
+  hasVideo,
   barcodeCount,
   onDownloadAllZip,
   onClearAll,
@@ -71,21 +74,39 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Navigation Tabs */}
-          <nav className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 border border-slate-200">
+          <nav className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 border border-slate-200 overflow-x-auto">
             <button
               id="nav-tab-resizer"
               onClick={() => setActiveTab('resizer')}
-              className={`flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-all ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap shrink-0 cursor-pointer ${
                 activeTab === 'resizer'
                   ? 'bg-white text-slate-900 shadow-sm font-semibold'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
               }`}
             >
-              <SlidersHorizontal className="h-4 w-4 text-blue-600" />
-              <span>{lang === 'hi' ? 'फोटो पिक्सेल और साइज' : 'Photo Resizer & Quality'}</span>
+              <SlidersHorizontal className="h-3.5 w-3.5 text-blue-600" />
+              <span>{lang === 'hi' ? 'फोटो पिक्सेल' : 'Photo Resizer'}</span>
               {imageCount > 0 && (
-                <span className="rounded-full bg-blue-100 px-1.5 py-0.2 text-[10px] font-bold text-blue-800">
-                  {imageCount}
+                <span className="font-mono tabular-nums text-[10px] font-bold text-blue-700">
+                  ({imageCount})
+                </span>
+              )}
+            </button>
+
+            <button
+              id="nav-tab-video"
+              onClick={() => setActiveTab('video')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap shrink-0 cursor-pointer ${
+                activeTab === 'video'
+                  ? 'bg-white text-slate-900 shadow-sm font-semibold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              }`}
+            >
+              <Film className="h-3.5 w-3.5 text-indigo-600" />
+              <span>{lang === 'hi' ? 'वीडियो एडिटर' : 'Video Editor'}</span>
+              {hasVideo && (
+                <span className="font-mono tabular-nums text-[10px] font-bold text-indigo-700">
+                  (1)
                 </span>
               )}
             </button>
@@ -93,17 +114,17 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="nav-tab-barcode"
               onClick={() => setActiveTab('barcode')}
-              className={`flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-all ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap shrink-0 cursor-pointer ${
                 activeTab === 'barcode'
                   ? 'bg-white text-slate-900 shadow-sm font-semibold'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
               }`}
             >
-              <Barcode className="h-4 w-4 text-emerald-600" />
-              <span>{lang === 'hi' ? 'बारकोड और क्यूआर (EAN/UPC)' : 'Barcode & QR (EAN/UPC)'}</span>
+              <Barcode className="h-3.5 w-3.5 text-emerald-600" />
+              <span>{lang === 'hi' ? 'बारकोड व QR' : 'Barcode & QR'}</span>
               {barcodeCount > 0 && (
-                <span className="rounded-full bg-emerald-100 px-1.5 py-0.2 text-[10px] font-bold text-emerald-800">
-                  {barcodeCount}
+                <span className="font-mono tabular-nums text-[10px] font-bold text-emerald-700">
+                  ({barcodeCount})
                 </span>
               )}
             </button>
@@ -111,30 +132,30 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="nav-tab-overlay"
               onClick={() => setActiveTab('overlay')}
-              className={`hidden md:flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-all ${
+              className={`hidden xl:flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap shrink-0 cursor-pointer ${
                 activeTab === 'overlay'
                   ? 'bg-white text-slate-900 shadow-sm font-semibold'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
               }`}
             >
-              <Layers className="h-4 w-4 text-purple-600" />
-              <span>{lang === 'hi' ? 'फोटो पर बारकोड स्टैम्प' : 'Stamp Barcode on Photos'}</span>
+              <Layers className="h-3.5 w-3.5 text-purple-600" />
+              <span>{lang === 'hi' ? 'बारकोड स्टैम्प' : 'Stamp Barcode'}</span>
             </button>
 
             <button
               id="nav-tab-history"
               onClick={() => setActiveTab('history')}
-              className={`flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-all ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap shrink-0 cursor-pointer ${
                 activeTab === 'history'
                   ? 'bg-white text-slate-900 shadow-sm font-semibold'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
               }`}
             >
-              <History className="h-4 w-4 text-amber-500" />
-              <span>{lang === 'hi' ? 'इतिहास व लॉग्स' : 'History & Logs'}</span>
+              <History className="h-3.5 w-3.5 text-amber-500" />
+              <span>{lang === 'hi' ? 'इतिहास' : 'History'}</span>
               {historyCount > 0 && (
-                <span className="rounded-full bg-amber-100 px-1.5 py-0.2 text-[10px] font-bold text-amber-800">
-                  {historyCount}
+                <span className="font-mono tabular-nums text-[10px] font-bold text-amber-700">
+                  ({historyCount})
                 </span>
               )}
             </button>

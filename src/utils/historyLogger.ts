@@ -1,7 +1,7 @@
 import { ImageProcessingConfig, BarcodeType } from '../types';
 
 export type LogLevel = 'info' | 'success' | 'warning' | 'error';
-export type LogCategory = 'resizer' | 'upscale' | 'border' | 'crop' | 'barcode' | 'overlay' | 'export' | 'system';
+export type LogCategory = 'resizer' | 'upscale' | 'border' | 'crop' | 'barcode' | 'overlay' | 'video' | 'export' | 'system';
 
 export interface LogEntry {
   id: string;
@@ -21,7 +21,8 @@ export type HistoryActionType =
   | 'barcode_single'
   | 'barcode_batch'
   | 'zip_export'
-  | 'barcode_stamp';
+  | 'barcode_stamp'
+  | 'video_edit';
 
 export interface HistoryRecord {
   id: string;
@@ -220,6 +221,7 @@ class HistoryLoggerService {
    */
   public getStats() {
     let totalImages = 0;
+    let totalVideos = 0;
     let totalBarcodes = 0;
     let totalSavedBytes = 0;
     let totalExports = 0;
@@ -231,6 +233,11 @@ class HistoryLoggerService {
         h.actionType === 'border_frame'
       ) {
         totalImages += h.itemCount;
+        if (h.savedBytes && h.savedBytes > 0) {
+          totalSavedBytes += h.savedBytes;
+        }
+      } else if (h.actionType === 'video_edit') {
+        totalVideos += h.itemCount;
         if (h.savedBytes && h.savedBytes > 0) {
           totalSavedBytes += h.savedBytes;
         }
@@ -247,6 +254,7 @@ class HistoryLoggerService {
     return {
       totalRecords: this.history.length,
       totalImages,
+      totalVideos,
       totalBarcodes,
       totalSavedBytes,
       totalExports,

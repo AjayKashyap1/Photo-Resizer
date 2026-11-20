@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ImageProcessingConfig,
   DimensionUnit,
   ResizeMode,
   SupportedFormat,
+  PhotoManualFitMode,
+  FileSizeUnit,
 } from '../../types';
 import { DIMENSION_PRESETS } from '../../utils/sampleData';
 import { unitToPixels, pixelsToUnit } from '../../utils/imageProcessor';
@@ -21,6 +23,7 @@ import {
   Zap,
   Frame,
   Palette,
+  ArrowLeftRight,
 } from 'lucide-react';
 
 interface BatchControlPanelProps {
@@ -42,31 +45,75 @@ export const BatchControlPanel: React.FC<BatchControlPanelProps> = ({
 }) => {
   const [activeUnit, setActiveUnit] = useState<DimensionUnit>('px');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [sizeUnit, setSizeUnit] = useState<FileSizeUnit>('KB');
+
+  const currentDisplayWidth = pixelsToUnit(config.width, activeUnit, config.dpi);
+  const currentDisplayHeight = pixelsToUnit(config.height, activeUnit, config.dpi);
+
+  // Local text drafts so manual pixel typing never jumps cursor or forces "1" mid-backspace
+  const [widthDraft, setWidthDraft] = useState<string>(String(currentDisplayWidth));
+  const [heightDraft, setHeightDraft] = useState<string>(String(currentDisplayHeight));
+
+  useEffect(() => {
+    setWidthDraft(String(pixelsToUnit(config.width, activeUnit, config.dpi)));
+    setHeightDraft(String(pixelsToUnit(config.height, activeUnit, config.dpi)));
+  }, [config.width, config.height, activeUnit, config.dpi]);
 
   // Update dimension helper
-  const handleWidthChange = (val: number) => {
-    const pxVal = unitToPixels(val, activeUnit, config.dpi);
+  const handleWidthInput = (raw: string) => {
+    setWidthDraft(raw);
+    const val = parseFloat(raw);
+    if (!Number.isFinite(val) || val <= 0) return;
+    const pxVal = Math.max(1, unitToPixels(val, activeUnit, config.dpi));
     let newHeight = config.height;
     if (config.maintainAspectRatio && config.aspectRatio > 0) {
       newHeight = Math.max(1, Math.round(pxVal / config.aspectRatio));
     }
     onChange({
       ...config,
-      width: Math.max(1, pxVal),
+      resizeMode: 'exact',
+      width: pxVal,
       height: newHeight,
     });
   };
 
-  const handleHeightChange = (val: number) => {
-    const pxVal = unitToPixels(val, activeUnit, config.dpi);
+  const handleHeightInput = (raw: string) => {
+    setHeightDraft(raw);
+    const val = parseFloat(raw);
+    if (!Number.isFinite(val) || val <= 0) return;
+    const pxVal = Math.max(1, unitToPixels(val, activeUnit, config.dpi));
     let newWidth = config.width;
     if (config.maintainAspectRatio && config.aspectRatio > 0) {
       newWidth = Math.max(1, Math.round(pxVal * config.aspectRatio));
     }
     onChange({
       ...config,
-      height: Math.max(1, pxVal),
+      resizeMode: 'exact',
+      height: pxVal,
       width: newWidth,
+    });
+  };
+
+  const handleSwapDimensions = () => {
+    onChange({
+      ...config,
+      resizeMode: 'exact',
+      width: config.height,
+      height: config.width,
+      maintainAspectRatio: false,
+      aspectRatio: config.height / Math.max(1, config.width),
+    });
+  };
+
+  const handleManualQuickPx = (w: number, h: number) => {
+    setActiveUnit('px');
+    onChange({
+      ...config,
+      resizeMode: 'exact',
+      width: w,
+      height: h,
+      maintainAspectRatio: false,
+      aspectRatio: w / h,
     });
   };
 
@@ -81,12 +128,16 @@ export const BatchControlPanel: React.FC<BatchControlPanelProps> = ({
       width: preset.width,
       height: preset.height,
       aspectRatio: newAspect,
-      maintainAspectRatio: true,
+      maintainAspectRatio: false,
     });
   };
 
-  const currentDisplayWidth = pixelsToUnit(config.width, activeUnit, config.dpi);
-  const currentDisplayHeight = pixelsToUnit(config.height, activeUnit, config.dpi);
+  const displayTargetSize =
+    config.targetMaxKb > 0
+      ? sizeUnit === 'MB'
+        ? Number((config.targetMaxKb / 1024).toFixed(2))
+        : config.targetMaxKb
+      : '';
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
@@ -143,13 +194,13 @@ export const BatchControlPanel: React.FC<BatchControlPanelProps> = ({
               id="mode-exact-btn"
               type="button"
               onClick={() => onChange({ ...config, resizeMode: 'exact' })}
-              className={`rounded-lg py-1.5 text-xs font-semibold transition ${
+              className={`rounded-lg py-1.5 text-xs font-semibold transition cursor-pointer ${
                 config.resizeMode === 'exact'
                   ? 'bg-white text-slate-900 shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              {lang === 'hi' ? 'पिक्सेल (Px)' : 'Exact Px'}
+              {lang === 'hi' ? 'मैन्युअल Px' : 'Manual Px'}
             </button>
             <button
               id="mode-percentage-btn"
@@ -282,25 +333,26 @@ export const BatchControlPanel: React.FC<BatchControlPanelProps> = ({
           </div>
 
           {config.resizeMode === 'exact' ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-1.5">
                 {/* Width */}
                 <div className="flex-1">
                   <span className="block text-[11px] font-medium text-slate-500 mb-0.5">
-                    {lang === 'hi' ? 'चौड़ाई (Width)' : 'Width'} ({activeUnit})
+                    {lang === 'hi' ? 'चौड़ाई (W)' : 'Width'} ({activeUnit})
                   </span>
                   <input
                     id="input-width"
                     type="number"
                     min="1"
-                    value={currentDisplayWidth}
-                    onChange={(e) => handleWidthChange(Number(e.target.value))}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-900 focus:border-blue-500 focus:outline-none"
+                    value={widthDraft}
+                    onChange={(e) => handleWidthInput(e.target.value)}
+                    onBlur={() => setWidthDraft(String(currentDisplayWidth))}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 font-mono tabular-nums text-xs font-bold text-slate-900 focus:border-blue-500 focus:outline-none"
                   />
                 </div>
 
-                {/* Aspect Lock */}
-                <div className="pt-4">
+                {/* Aspect Lock & Swap */}
+                <div className="flex items-center gap-1 pt-4">
                   <button
                     id="toggle-aspect-ratio-btn"
                     type="button"
@@ -308,14 +360,18 @@ export const BatchControlPanel: React.FC<BatchControlPanelProps> = ({
                       onChange({
                         ...config,
                         maintainAspectRatio: !config.maintainAspectRatio,
-                        aspectRatio: config.width / config.height,
+                        aspectRatio: config.width / Math.max(1, config.height),
                       })
                     }
-                    title={config.maintainAspectRatio ? 'Aspect Ratio Locked' : 'Aspect Ratio Unlocked'}
-                    className={`flex h-8 w-8 items-center justify-center rounded-lg border transition ${
+                    title={
+                      config.maintainAspectRatio
+                        ? 'Aspect Ratio Locked (click for Free Manual Px)'
+                        : 'Free Manual Px (click to Lock Ratio)'
+                    }
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg border transition cursor-pointer ${
                       config.maintainAspectRatio
                         ? 'border-blue-500 bg-blue-50 text-blue-600'
-                        : 'border-slate-200 bg-slate-50 text-slate-400 hover:text-slate-700'
+                        : 'border-emerald-500 bg-emerald-50 text-emerald-700'
                     }`}
                   >
                     {config.maintainAspectRatio ? (
@@ -324,49 +380,115 @@ export const BatchControlPanel: React.FC<BatchControlPanelProps> = ({
                       <Unlock className="h-3.5 w-3.5" />
                     )}
                   </button>
+                  <button
+                    type="button"
+                    onClick={handleSwapDimensions}
+                    title="Swap Width & Height"
+                    className="flex h-8 w-7 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer"
+                  >
+                    <ArrowLeftRight className="h-3 w-3" />
+                  </button>
                 </div>
 
                 {/* Height */}
                 <div className="flex-1">
                   <span className="block text-[11px] font-medium text-slate-500 mb-0.5">
-                    {lang === 'hi' ? 'ऊंचाई (Height)' : 'Height'} ({activeUnit})
+                    {lang === 'hi' ? 'ऊंचाई (H)' : 'Height'} ({activeUnit})
                   </span>
                   <input
                     id="input-height"
                     type="number"
                     min="1"
-                    value={currentDisplayHeight}
-                    onChange={(e) => handleHeightChange(Number(e.target.value))}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-900 focus:border-blue-500 focus:outline-none"
+                    value={heightDraft}
+                    onChange={(e) => handleHeightInput(e.target.value)}
+                    onBlur={() => setHeightDraft(String(currentDisplayHeight))}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 font-mono tabular-nums text-xs font-bold text-slate-900 focus:border-blue-500 focus:outline-none"
                   />
                 </div>
               </div>
 
+              {/* Manual Pixel Mode Status & Fit Behavior */}
+              <div className="flex items-center justify-between gap-2 text-[10px]">
+                <span className="font-semibold text-slate-500">
+                  {config.maintainAspectRatio
+                    ? lang === 'hi'
+                      ? 'रेशियो लॉक (अनलॉक कर मैन्युअल सेट करें)'
+                      : 'Ratio Locked (unlock for custom W×H)'
+                    : lang === 'hi'
+                    ? 'फ्री मैन्युअल Px सक्रिय:'
+                    : 'Manual Fit Mode:'}
+                </span>
+                {!config.maintainAspectRatio && (
+                  <div className="flex items-center gap-1">
+                    {(
+                      [
+                        { id: 'cover', label: 'Crop' },
+                        { id: 'contain', label: 'Pad' },
+                        { id: 'stretch', label: 'Stretch' },
+                      ] as { id: PhotoManualFitMode; label: string }[]
+                    ).map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => onChange({ ...config, manualFitMode: m.id })}
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-bold transition cursor-pointer ${
+                          (config.manualFitMode || 'cover') === m.id
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Manual Px Chips */}
+              <div className="flex flex-wrap gap-1">
+                {[
+                  { label: '300×300', w: 300, h: 300 },
+                  { label: '500×500', w: 500, h: 500 },
+                  { label: '800×600', w: 800, h: 600 },
+                  { label: '1080×1080', w: 1080, h: 1080 },
+                  { label: '1920×1080', w: 1920, h: 1080 },
+                  { label: '200×230', w: 200, h: 230 },
+                ].map((q) => (
+                  <button
+                    key={q.label}
+                    type="button"
+                    onClick={() => handleManualQuickPx(q.w, q.h)}
+                    className={`rounded-md border px-1.5 py-0.5 font-mono tabular-nums text-[10px] font-semibold transition cursor-pointer ${
+                      config.width === q.w && config.height === q.h
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    {q.label}
+                  </button>
+                ))}
+              </div>
+
               {/* DPI Setting */}
-              <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs">
+              <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-1.5 text-xs">
                 <div>
                   <span className="font-bold text-slate-800 block text-[11px]">
                     {lang === 'hi' ? 'DPI (प्रिंट रेजोल्यूशन)' : 'DPI (Print Density)'}
                   </span>
-                  <span className="text-[10px] text-slate-500">
-                    {config.dpi || 96} DPI ({config.dpi >= 300 ? 'Print Standard' : config.dpi >= 150 ? 'Medium' : 'Screen'})
-                  </span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <select
-                    id="batch-dpi-select"
-                    value={config.dpi || 96}
-                    onChange={(e) => onChange({ ...config, dpi: Number(e.target.value) })}
-                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-900 focus:border-blue-500 focus:outline-none"
-                  >
-                    <option value={72}>72 DPI (Web)</option>
-                    <option value={96}>96 DPI (Standard)</option>
-                    <option value={150}>150 DPI (Draft Print)</option>
-                    <option value={200}>200 DPI (Medium Print)</option>
-                    <option value={300}>300 DPI (HQ Print / Visa)</option>
-                    <option value={600}>600 DPI (Ultra HD)</option>
-                  </select>
-                </div>
+                <select
+                  id="batch-dpi-select"
+                  value={config.dpi || 96}
+                  onChange={(e) => onChange({ ...config, dpi: Number(e.target.value) })}
+                  className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-900 focus:border-blue-500 focus:outline-none"
+                >
+                  <option value={72}>72 DPI (Web)</option>
+                  <option value={96}>96 DPI (Standard)</option>
+                  <option value={150}>150 DPI (Draft Print)</option>
+                  <option value={200}>200 DPI (Medium Print)</option>
+                  <option value={300}>300 DPI (HQ Print / Visa)</option>
+                  <option value={600}>600 DPI (Ultra HD)</option>
+                </select>
               </div>
             </div>
           ) : config.resizeMode === 'upscale' ? (
@@ -504,11 +626,29 @@ export const BatchControlPanel: React.FC<BatchControlPanelProps> = ({
           )}
         </div>
 
-        {/* Column 4: Target KB Optimizer */}
+        {/* Column 4: Target File Size (KB / MB) */}
         <div className="space-y-3">
-          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-            {lang === 'hi' ? '4. टारगेट फाइल साइज (KB)' : '4. Target Max File Size'}
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+              {lang === 'hi' ? '4. फाइल साइज बदलें (KB/MB)' : '4. Target File Size'}
+            </label>
+            <div className="flex items-center gap-0.5 rounded-md bg-slate-100 p-0.5 border border-slate-200">
+              {(['KB', 'MB'] as FileSizeUnit[]).map((u) => (
+                <button
+                  key={u}
+                  type="button"
+                  onClick={() => setSizeUnit(u)}
+                  className={`rounded px-1.5 py-0.5 text-[10px] font-bold transition cursor-pointer ${
+                    sizeUnit === u
+                      ? 'bg-white text-blue-700 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {u}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div>
             <div className="flex items-center gap-2">
@@ -516,44 +656,75 @@ export const BatchControlPanel: React.FC<BatchControlPanelProps> = ({
                 id="input-target-kb"
                 type="number"
                 min="0"
-                max="10000"
-                placeholder="0 (Unlimited)"
-                value={config.targetMaxKb || ''}
-                onChange={(e) =>
-                  onChange({ ...config, targetMaxKb: Math.max(0, Number(e.target.value)) })
-                }
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 focus:border-blue-500 focus:outline-none"
+                step={sizeUnit === 'MB' ? '0.1' : '1'}
+                max={sizeUnit === 'MB' ? '50' : '50000'}
+                placeholder="0 (Auto)"
+                value={displayTargetSize}
+                onChange={(e) => {
+                  const val = Math.max(0, parseFloat(e.target.value) || 0);
+                  const kb = sizeUnit === 'MB' ? Math.round(val * 1024) : Math.round(val);
+                  onChange({ ...config, targetMaxKb: kb });
+                }}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 font-mono tabular-nums text-xs font-bold text-slate-900 focus:border-blue-500 focus:outline-none"
               />
-              <span className="text-xs font-bold text-slate-600">KB</span>
+              <span className="text-xs font-bold text-slate-600 shrink-0">{sizeUnit}</span>
             </div>
             <p className="mt-1 text-[11px] text-slate-500">
               {lang === 'hi'
-                ? 'सरकारी फॉर्म / पोर्टल के लिए लिमिट (उदा. 50 KB, 100 KB)'
-                : 'Govt forms / Portal file limits (e.g. 50 KB, 100 KB, 200 KB)'}
+                ? 'सरकारी फॉर्म / पोर्टल के लिए लिमिट (उदा. 50 KB, 200 KB, 1 MB)'
+                : 'Exact max size for forms & portals (e.g. 50 KB, 200 KB, 1 MB)'}
             </p>
           </div>
 
-          {/* Quick Target KB pills */}
-          <div className="flex flex-wrap gap-1">
-            {[20, 50, 100, 200, 500].map((kb) => (
+          {/* PNG warning if target size set */}
+          {config.targetMaxKb > 0 && config.format === 'image/png' && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[10px] text-amber-800 flex items-center justify-between gap-2">
+              <span>{lang === 'hi' ? 'सटीक साइज के लिए JPEG चुनें' : 'PNG ignores size caps.'}</span>
               <button
-                key={kb}
                 type="button"
-                onClick={() => onChange({ ...config, targetMaxKb: kb })}
-                className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold transition ${
-                  config.targetMaxKb === kb
+                onClick={() => onChange({ ...config, format: 'image/jpeg' })}
+                className="rounded bg-amber-600 px-1.5 py-0.5 font-bold text-white hover:bg-amber-700 cursor-pointer shrink-0"
+              >
+                Use JPEG
+              </button>
+            </div>
+          )}
+
+          {/* Quick Target Size buttons */}
+          <div className="flex flex-wrap gap-1">
+            {[
+              { label: '20 KB', kb: 20, unit: 'KB' as FileSizeUnit },
+              { label: '50 KB', kb: 50, unit: 'KB' as FileSizeUnit },
+              { label: '100 KB', kb: 100, unit: 'KB' as FileSizeUnit },
+              { label: '200 KB', kb: 200, unit: 'KB' as FileSizeUnit },
+              { label: '500 KB', kb: 500, unit: 'KB' as FileSizeUnit },
+              { label: '1 MB', kb: 1024, unit: 'MB' as FileSizeUnit },
+            ].map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => {
+                  setSizeUnit(item.unit);
+                  onChange({
+                    ...config,
+                    targetMaxKb: item.kb,
+                    format: config.format === 'image/png' ? 'image/jpeg' : config.format,
+                  });
+                }}
+                className={`rounded-md border px-2 py-0.5 font-mono tabular-nums text-[10px] font-semibold transition cursor-pointer ${
+                  config.targetMaxKb === item.kb
                     ? 'border-blue-500 bg-blue-50 text-blue-700'
                     : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                &lt; {kb} KB
+                {item.label}
               </button>
             ))}
             {config.targetMaxKb > 0 && (
               <button
                 type="button"
                 onClick={() => onChange({ ...config, targetMaxKb: 0 })}
-                className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] text-red-600 hover:bg-red-50 font-semibold"
+                className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] text-red-600 hover:bg-red-50 font-semibold cursor-pointer"
               >
                 Clear
               </button>
